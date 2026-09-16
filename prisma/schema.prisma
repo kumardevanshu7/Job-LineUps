@@ -1,0 +1,42 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Job {
+  id                String      @id @default(cuid())
+  title             String
+  department        String
+  location          String
+  experienceBracket String
+  type              String      @default("Full-Time")
+  salaryRange       String
+  description       String
+  requirements      String
+  active            Boolean     @default(true)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+}
+
+model Candidate {
+  id               String    @id @default(cuid())
+  fullName         String
+  phone            String
+  email            String
+  location         String
+  appliedRole      String
+  experienceYears  Float
+  noticePeriodDays Int
+  currentCtc       String?
+  expectedCtc      String?
+  resumeUrl        String
+  status           String    @default("New Applied")
+  interviewDate    DateTime?
+  recruiterNotes   String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+}
