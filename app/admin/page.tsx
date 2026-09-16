@@ -5,6 +5,7 @@ import RecruiterNavbar from "@/components/RecruiterNavbar";
 import CalendarView from "@/components/CalendarView";
 import AddCandidateModal from "@/components/AddCandidateModal";
 import ManagerExportModal from "@/components/ManagerExportModal";
+import OnboardingModal from "@/components/OnboardingModal";
 import MobileBottomNav from "@/components/MobileBottomNav";
 import GoogleAuthGate from "@/components/GoogleAuthGate";
 import {
@@ -25,13 +26,15 @@ import {
   Settings,
 } from "lucide-react";
 import { toast } from "sonner";
-import { CandidateItem, CandidateStats } from "@/lib/types";
+import { CandidateItem, CandidateStats, RecruiterProfile } from "@/lib/types";
 import { isToday, isTomorrow, isThisWeek, formatIndianDateTime } from "@/lib/date-utils";
 import {
   onRecruiterAuthStateChanged,
   logOutRecruiter,
   syncCandidateToFirestore,
   updateCandidateInFirestore,
+  saveRecruiterProfileToFirestore,
+  getRecruiterProfileFromFirestore,
 } from "@/lib/firebase";
 import { User } from "firebase/auth";
 
@@ -107,7 +110,9 @@ export default function RecruiterAdminPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<"LINEUP" | "CALENDAR">("LINEUP");
 
-  // Modals
+  // Modals & Profile
+  const [recruiterProfile, setRecruiterProfile] = useState<RecruiterProfile | null>(null);
+  const [isOnboardingModalOpen, setIsOnboardingModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [activeCandidate, setActiveCandidate] = useState<CandidateItem | null>(null);
@@ -121,19 +126,64 @@ export default function RecruiterAdminPage() {
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [dateFilter, setDateFilter] = useState<"ALL" | "TODAY" | "TOMORROW" | "THIS_WEEK">("ALL");
 
-  // Track Firebase Auth state
+  // Track Firebase Auth state & Recruiter Profile
   useEffect(() => {
-    const unsubscribe = onRecruiterAuthStateChanged((user) => {
+    const unsubscribe = onRecruiterAuthStateChanged(async (user) => {
       setCurrentUser(user);
       setAuthLoading(false);
+
+      if (user) {
+        // 1. Try local cache for immediate render
+        const localKey = `recruiter_profile_${user.uid}`;
+        let profileFound: RecruiterProfile | null = null;
+        const cached = typeof window !== "undefined" ? localStorage.getItem(localKey) : null;
+        if (cached) {
+          try {
+            profileFound = JSON.parse(cached);
+            setRecruiterProfile(profileFound);
+          } catch (e) {
+            // ignore
+          }
+        }
+
+        // 2. Fetch from Cloud Firestore
+        try {
+          const remote = await getRecruiterProfileFromFirestore(user.uid);
+          if (remote) {
+            profileFound = remote;
+            setRecruiterProfile(remote);
+            if (typeof window !== "undefined") {
+              localStorage.setItem(localKey, JSON.stringify(remote));
+            }
+          }
+        } catch (e) {
+          console.warn("Error fetching remote profile:", e);
+        }
+
+        // 3. Prompt Onboarding if not completed
+        if (!profileFound || !profileFound.completedOnboarding) {
+          setIsOnboardingModalOpen(true);
+        }
+      } else {
+        setRecruiterProfile(null);
+      }
     });
     return () => unsubscribe();
   }, []);
+
+  const handleSaveProfile = async (newProfile: RecruiterProfile) => {
+    setRecruiterProfile(newProfile);
+    if (currentUser && typeof window !== "undefined") {
+      localStorage.setItem(`recruiter_profile_${currentUser.uid}`, JSON.stringify(newProfile));
+      await saveRecruiterProfileToFirestore(newProfile);
+    }
+  };
 
   const handleSignOut = async () => {
     try {
       await logOutRecruiter();
       setCurrentUser(null);
+      setRecruiterProfile(null);
       toast.info("Signed out from Google Account");
     } catch (err) {
       toast.error("Failed to sign out");
@@ -316,6 +366,8 @@ export default function RecruiterAdminPage() {
         activeTab={activeTab}
         onTabChange={setActiveTab}
         currentUser={currentUser}
+        recruiterProfile={recruiterProfile}
+        onOpenProfileModal={() => setIsOnboardingModalOpen(true)}
         onSignOut={handleSignOut}
       />
 
@@ -980,6 +1032,15 @@ export default function RecruiterAdminPage() {
         isOpen={isExportModalOpen}
         onClose={() => setIsExportModalOpen(false)}
         candidates={candidates}
+      />
+
+      {/* Recruiter Onboarding & Cursive Logo Designer Modal */}
+      <OnboardingModal
+        isOpen={isOnboardingModalOpen}
+        onClose={() => setIsOnboardingModalOpen(false)}
+        currentUser={currentUser}
+        existingProfile={recruiterProfile}
+        onSaveProfile={handleSaveProfile}
       />
 
       {/* Sticky Bottom Navigation for Mobile */}

@@ -12,13 +12,14 @@ import {
   getFirestore,
   collection,
   doc,
+  getDoc,
   setDoc,
   updateDoc,
   onSnapshot,
   query,
   orderBy,
 } from "firebase/firestore";
-import { CandidateItem } from "./types";
+import { CandidateItem, RecruiterProfile } from "./types";
 
 export const firebaseConfig = {
   apiKey:
@@ -111,5 +112,35 @@ export async function updateCandidateInFirestore(
     });
   } catch (err) {
     console.warn("Firestore update error:", err);
+  }
+}
+
+// Firestore Sync: Save recruiter onboarding profile
+export async function saveRecruiterProfileToFirestore(profile: RecruiterProfile) {
+  try {
+    const docRef = doc(db, "recruiters", profile.uid);
+    await setDoc(docRef, {
+      ...profile,
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.warn("Firestore save recruiter profile error:", err);
+  }
+}
+
+// Firestore Sync: Get recruiter onboarding profile
+export async function getRecruiterProfileFromFirestore(
+  uid: string
+): Promise<RecruiterProfile | null> {
+  try {
+    const docRef = doc(db, "recruiters", uid);
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+      return snap.data() as RecruiterProfile;
+    }
+    return null;
+  } catch (err) {
+    console.warn("Firestore get recruiter profile error:", err);
+    return null;
   }
 }

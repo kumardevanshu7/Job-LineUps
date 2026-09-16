@@ -10,6 +10,8 @@ import {
   ArrowLeft,
 } from "lucide-react";
 import { User } from "firebase/auth";
+import { RecruiterProfile } from "@/lib/types";
+import CursiveAvatar from "./CursiveAvatar";
 
 interface RecruiterNavbarProps {
   onOpenAddModal: () => void;
@@ -17,6 +19,8 @@ interface RecruiterNavbarProps {
   activeTab: "LINEUP" | "CALENDAR";
   onTabChange: (tab: "LINEUP" | "CALENDAR") => void;
   currentUser?: User | null;
+  recruiterProfile?: RecruiterProfile | null;
+  onOpenProfileModal?: () => void;
   onSignOut?: () => void;
 }
 
@@ -26,6 +30,8 @@ export default function RecruiterNavbar({
   activeTab,
   onTabChange,
   currentUser,
+  recruiterProfile,
+  onOpenProfileModal,
   onSignOut,
 }: RecruiterNavbarProps) {
   return (
@@ -102,31 +108,36 @@ export default function RecruiterNavbar({
             <span className="font-medium sm:hidden">Add</span>
           </button>
 
-          {/* Recruiter Avatar & Sign Out */}
+          {/* Recruiter Cursive Avatar & Profile Button */}
           {currentUser && (
             <div className="flex items-center gap-1.5 sm:gap-2 border-l border-hairline pl-2 ml-0.5 shrink-0">
-              {currentUser.photoURL ? (
-                <img
-                  src={currentUser.photoURL}
-                  alt={currentUser.displayName || "Recruiter"}
-                  className="w-7 h-7 rounded-full object-cover border border-hairline shrink-0"
+              <button
+                onClick={onOpenProfileModal}
+                className="flex items-center gap-2 group text-left focus:outline-none"
+                title="Click to customize your profile & cursive logo avatar"
+              >
+                <CursiveAvatar
+                  initial={
+                    recruiterProfile?.avatarInitial ||
+                    currentUser.displayName?.trim().charAt(0) ||
+                    "K"
+                  }
+                  colorId={recruiterProfile?.avatarColorId || "lavender"}
+                  size="sm"
+                  className="group-hover:scale-105 group-hover:ring-2 group-hover:ring-primary/40 transition-all"
                 />
-              ) : (
-                <div className="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0">
-                  {currentUser.displayName
-                    ? currentUser.displayName.charAt(0).toUpperCase()
-                    : "HR"}
-                </div>
-              )}
 
-              <div className="hidden lg:flex flex-col text-[11px] leading-tight text-left">
-                <span className="font-semibold text-ink truncate max-w-28">
-                  {currentUser.displayName || "Recruiter"}
-                </span>
-                <span className="text-[10px] text-ink-mute truncate max-w-28">
-                  {currentUser.email}
-                </span>
-              </div>
+                <div className="hidden lg:flex flex-col text-[11px] leading-tight text-left">
+                  <span className="font-semibold text-ink truncate max-w-28 group-hover:text-primary transition-colors">
+                    {recruiterProfile?.name || currentUser.displayName || "Recruiter"}
+                  </span>
+                  <span className="text-[10px] text-ink-mute truncate max-w-28">
+                    {recruiterProfile?.position
+                      ? `${recruiterProfile.position}`
+                      : currentUser.email}
+                  </span>
+                </div>
+              </button>
 
               {onSignOut && (
                 <button

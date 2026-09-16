@@ -60,3 +60,16 @@ export interface RecruiterUser {
   role: "Recruiter" | "Lead" | "Manager";
 }
 
+export interface RecruiterProfile {
+  uid: string;
+  name: string;
+  age?: number | string | null;
+  gender?: "Male" | "Female" | "Other" | "Prefer not to say" | string;
+  company: string; // Where you work
+  position: string; // Position/Role
+  avatarInitial: string; // A-Z cursive initial
+  avatarColorId: string; // Light color id
+  completedOnboarding: boolean;
+  updatedAt?: string;
+}
+
