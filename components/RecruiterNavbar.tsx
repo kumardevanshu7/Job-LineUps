@@ -12,6 +12,7 @@ import {
 import { User } from "firebase/auth";
 import { RecruiterProfile } from "@/lib/types";
 import CursiveAvatar from "./CursiveAvatar";
+import BrandLogo from "./BrandLogo";
 
 interface RecruiterNavbarProps {
   onOpenAddModal: () => void;
@@ -48,9 +49,23 @@ export default function RecruiterNavbar({
           </Link>
 
           <div className="flex items-center gap-1.5 sm:gap-2">
-            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-primary flex items-center justify-center shadow-sm shrink-0">
-              <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
-            </div>
+            {recruiterProfile?.avatarInitial ? (
+              <button
+                type="button"
+                onClick={onOpenProfileModal}
+                title={`Recruiter Logo (${recruiterProfile.avatarInitial}) — Tap to edit profile`}
+                className="focus:outline-none transition-transform hover:scale-105 active:scale-95 shrink-0"
+              >
+                <CursiveAvatar
+                  initial={recruiterProfile.avatarInitial}
+                  colorId={recruiterProfile.avatarColorId}
+                  size="sm"
+                  className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg shadow-sm"
+                />
+              </button>
+            ) : (
+              <BrandLogo size="sm" className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg" />
+            )}
             <div className="flex flex-col">
               <span className="text-[16px] sm:text-[18px] font-semibold tracking-tight text-ink leading-tight">
                 Talent<span className="text-primary font-normal">Flow</span>

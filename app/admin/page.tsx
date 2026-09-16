@@ -8,6 +8,7 @@ import ManagerExportModal from "@/components/ManagerExportModal";
 import OnboardingModal from "@/components/OnboardingModal";
 import MobileBottomNav from "@/components/MobileBottomNav";
 import GoogleAuthGate from "@/components/GoogleAuthGate";
+import StatusFilterDropdown from "@/components/StatusFilterDropdown";
 import {
   Search,
   RefreshCw,
@@ -562,20 +563,12 @@ export default function RecruiterAdminPage() {
                     </select>
                   </div>
 
-                  <div className="flex items-center gap-1">
-                    <span className="text-ink-mute hidden sm:inline">Status:</span>
-                    <select
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-ink-mute hidden sm:inline text-xs font-medium">Stage:</span>
+                    <StatusFilterDropdown
                       value={statusFilter}
-                      onChange={(e) => setStatusFilter(e.target.value)}
-                      className="text-xs px-2.5 py-1 rounded-sm border border-hairline-input bg-canvas text-ink focus:outline-none focus:border-primary"
-                    >
-                      <option value="ALL">All Stages</option>
-                      {STATUS_LIST.map((st) => (
-                        <option key={st} value={st}>
-                          {st}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(st) => setStatusFilter(st)}
+                    />
                   </div>
 
                   {(roleFilter !== "ALL" || statusFilter !== "ALL" || searchQuery || dateFilter !== "ALL") && (
@@ -615,9 +608,19 @@ export default function RecruiterAdminPage() {
                 </div>
               ) : filteredCandidates.length === 0 ? (
                 <div className="p-8 bg-canvas border border-hairline rounded-xl text-center text-ink-mute">
-                  <Users className="w-8 h-8 mx-auto text-ink-mute/40 mb-2" />
-                  <p className="font-medium text-ink text-sm">No candidates found</p>
-                  <p className="text-xs text-ink-mute mt-1">Tap &ldquo;+&rdquo; below to add candidate line-up</p>
+                  <Users className="w-8 h-8 mx-auto text-primary/40 mb-2" />
+                  <p className="font-semibold text-ink text-sm">No candidates in line-up yet</p>
+                  <p className="text-xs text-ink-mute mt-1">
+                    {candidates.length === 0
+                      ? "Your line-up roster is clean and ready."
+                      : "No candidates match the active filters."}
+                  </p>
+                  <button
+                    onClick={() => setIsAddModalOpen(true)}
+                    className="mt-3.5 btn-primary-pill text-xs py-2 px-4 inline-flex items-center gap-1.5 shadow-sm"
+                  >
+                    + Add New Candidate
+                  </button>
                 </div>
               ) : (
                 filteredCandidates.map((c) => {
@@ -775,9 +778,24 @@ export default function RecruiterAdminPage() {
                       </tr>
                     ) : filteredCandidates.length === 0 ? (
                       <tr>
-                        <td colSpan={8} className="py-12 text-center text-ink-mute">
-                          <p className="text-sm font-medium text-ink">No candidates in this filter</p>
-                          <p className="text-xs text-ink-mute mt-1">Try resetting the search or date filters.</p>
+                        <td colSpan={8} className="py-16 text-center text-ink-mute">
+                          <Users className="w-10 h-10 mx-auto text-primary/40 mb-3" />
+                          <p className="text-base font-semibold text-ink">
+                            {candidates.length === 0
+                              ? "Your candidate line-up roster is empty and ready"
+                              : "No candidates match the active filters"}
+                          </p>
+                          <p className="text-xs text-ink-mute mt-1 max-w-sm mx-auto">
+                            {candidates.length === 0
+                              ? "All demo entries have been cleared. Add real candidate line-ups to schedule interviews and export manager reports."
+                              : "Try clearing your role, stage, or date filters to see more candidates."}
+                          </p>
+                          <button
+                            onClick={() => setIsAddModalOpen(true)}
+                            className="mt-4 btn-primary-pill text-xs py-2 px-4 inline-flex items-center gap-1.5 shadow-sm"
+                          >
+                            + Add New Candidate
+                          </button>
                         </td>
                       </tr>
                     ) : (

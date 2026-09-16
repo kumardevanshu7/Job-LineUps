@@ -1,10 +1,12 @@
 import type { Metadata, Viewport } from "next";
 import { Toaster } from "sonner";
+import PWARegistration from "@/components/PWARegistration";
 import "./globals.css";
 
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  maximumScale: 5,
   viewportFit: "cover",
   themeColor: "#533afd",
 };
@@ -18,6 +20,14 @@ export const metadata: Metadata = {
     apple: "/apple-touch-icon.png",
   },
   manifest: "/site.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "TalentFlow",
+  },
+  formatDetection: {
+    telephone: false,
+  },
 };
 
 export default function RootLayout({
@@ -29,6 +39,7 @@ export default function RootLayout({
     <html lang="en">
       <body className="min-h-screen bg-canvas text-ink antialiased selection:bg-primary-subdued selection:text-ink">
         {children}
+        <PWARegistration />
         <Toaster position="top-right" richColors closeButton />
       </body>
     </html>

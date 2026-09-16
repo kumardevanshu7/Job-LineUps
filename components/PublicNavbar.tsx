@@ -2,7 +2,8 @@
 
 import React from "react";
 import Link from "next/link";
-import { ArrowUpRight, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowUpRight, ShieldCheck } from "lucide-react";
+import BrandLogo from "./BrandLogo";
 
 export default function PublicNavbar() {
   return (
@@ -10,9 +11,7 @@ export default function PublicNavbar() {
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2">
         {/* Brand Logo */}
         <Link href="/" className="flex items-center gap-2 group shrink-0">
-          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-primary flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform shrink-0">
-            <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
-          </div>
+          <BrandLogo size="md" className="group-hover:scale-105 transition-transform" />
           <div className="flex flex-col">
             <span className="text-[17px] sm:text-[19px] font-semibold tracking-tight text-ink">
               Talent<span className="text-primary font-normal">Flow</span>

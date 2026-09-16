@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useState } from "react";
-import { Sparkles, Shield, AlertCircle, Loader2 } from "lucide-react";
+import { Shield, AlertCircle, Loader2 } from "lucide-react";
 import { signInWithGoogle } from "@/lib/firebase";
 import { toast } from "sonner";
+import BrandLogo from "./BrandLogo";
 
 interface GoogleAuthGateProps {
   onSuccess: () => void;
@@ -52,8 +53,8 @@ export default function GoogleAuthGate({ onSuccess }: GoogleAuthGateProps) {
 
       <div className="relative z-10 w-full max-w-md bg-canvas rounded-xl sm:rounded-2xl border border-hairline shadow-level2 p-5 sm:p-8 text-center">
         {/* Brand Icon */}
-        <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-primary text-white mx-auto flex items-center justify-center shadow-md mb-5 sm:mb-6">
-          <Sparkles className="w-6 h-6 sm:w-7 sm:h-7" />
+        <div className="flex justify-center mb-5 sm:mb-6">
+          <BrandLogo size="lg" className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl shadow-md" />
         </div>
 
         {/* Title */}

@@ -18,21 +18,21 @@ import {
 
 export default function DashboardPreviewMockup() {
   return (
-    <section className="relative z-20 -mt-6 sm:-mt-8 mb-16 sm:mb-24 max-w-6xl mx-auto px-3 sm:px-6 lg:px-8">
+    <section className="relative z-20 -mt-6 sm:-mt-8 mb-16 sm:mb-24 max-w-6xl mx-auto px-3 sm:px-6 lg:px-8 w-full max-w-full overflow-hidden">
       {/* Outer Composited Chrome Panel */}
-      <div className="rounded-xl bg-canvas border border-hairline shadow-level2 overflow-hidden">
+      <div className="rounded-xl bg-canvas border border-hairline shadow-level2 overflow-hidden w-full max-w-full">
         {/* Top Window Bar */}
         <div className="bg-canvas-soft border-b border-hairline px-3 sm:px-4 py-2.5 sm:py-3 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            <div className="w-2.5 h-2.5 rounded-full bg-[#ff5f56]" />
-            <div className="w-2.5 h-2.5 rounded-full bg-[#ffbd2e]" />
-            <div className="w-2.5 h-2.5 rounded-full bg-[#27c93f]" />
-            <span className="ml-1.5 sm:ml-3 text-[11px] sm:text-[12px] font-medium text-ink-mute tracking-tight truncate max-w-40 sm:max-w-none">
-              Recruiter Line-Up Command
+          <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">
+            <div className="w-2.5 h-2.5 rounded-full bg-[#ff5f56] shrink-0" />
+            <div className="w-2.5 h-2.5 rounded-full bg-[#ffbd2e] shrink-0" />
+            <div className="w-2.5 h-2.5 rounded-full bg-[#27c93f] shrink-0" />
+            <span className="ml-1 sm:ml-2 text-[11px] sm:text-[12px] font-medium text-ink-mute tracking-tight truncate">
+              Recruiter Command
             </span>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] sm:text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
               <span>Live Sync</span>
@@ -48,10 +48,10 @@ export default function DashboardPreviewMockup() {
         </div>
 
         {/* Inner Mockup Body */}
-        <div className="p-3 sm:p-6 bg-canvas">
+        <div className="p-3 sm:p-6 bg-canvas w-full max-w-full overflow-hidden">
           {/* Top KPI Metrics Preview Row */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-4 sm:mb-6">
-            <div className="p-2.5 sm:p-3.5 rounded-lg bg-canvas-soft border border-hairline">
+            <div className="p-2.5 sm:p-3.5 rounded-lg bg-canvas-soft border border-hairline min-w-0">
               <div className="flex items-center justify-between text-ink-mute text-[10px] sm:text-[12px] mb-0.5 sm:mb-1">
                 <span className="truncate">Total Roster</span>
                 <Users className="w-3.5 h-3.5 text-primary shrink-0" />
@@ -65,7 +65,7 @@ export default function DashboardPreviewMockup() {
               </div>
             </div>
 
-            <div className="p-2.5 sm:p-3.5 rounded-lg bg-canvas-soft border border-hairline">
+            <div className="p-2.5 sm:p-3.5 rounded-lg bg-canvas-soft border border-hairline min-w-0">
               <div className="flex items-center justify-between text-ink-mute text-[10px] sm:text-[12px] mb-0.5 sm:mb-1">
                 <span className="truncate">Shortlisted</span>
                 <Briefcase className="w-3.5 h-3.5 text-purple-600 shrink-0" />
@@ -76,7 +76,7 @@ export default function DashboardPreviewMockup() {
               <div className="text-[10px] sm:text-[11px] text-ink-mute truncate">Ready for line-up</div>
             </div>
 
-            <div className="p-2.5 sm:p-3.5 rounded-lg bg-canvas-soft border border-hairline">
+            <div className="p-2.5 sm:p-3.5 rounded-lg bg-canvas-soft border border-hairline min-w-0">
               <div className="flex items-center justify-between text-ink-mute text-[10px] sm:text-[12px] mb-0.5 sm:mb-1">
                 <span className="truncate">Scheduled</span>
                 <Calendar className="w-3.5 h-3.5 text-primary shrink-0" />
@@ -87,7 +87,7 @@ export default function DashboardPreviewMockup() {
               <div className="text-[10px] sm:text-[11px] text-primary truncate">Active slots</div>
             </div>
 
-            <div className="p-2.5 sm:p-3.5 rounded-lg bg-canvas-soft border border-hairline">
+            <div className="p-2.5 sm:p-3.5 rounded-lg bg-canvas-soft border border-hairline min-w-0">
               <div className="flex items-center justify-between text-ink-mute text-[10px] sm:text-[12px] mb-0.5 sm:mb-1">
                 <span className="truncate">Selected</span>
                 <CheckCircle className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
@@ -100,9 +100,9 @@ export default function DashboardPreviewMockup() {
           </div>
 
           {/* Table Header Controls */}
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-3 mb-3 sm:mb-4">
-            <div className="flex items-center gap-2">
-              <div className="relative flex-1 sm:w-64">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 sm:gap-3 mb-3 sm:mb-4 w-full max-w-full">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <div className="relative flex-1 min-w-0 sm:w-64">
                 <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-ink-mute" />
                 <div className="w-full text-xs pl-9 pr-3 py-1.5 rounded-sm border border-hairline-input text-ink-mute bg-canvas truncate">
                   Search candidate or role...
@@ -113,7 +113,7 @@ export default function DashboardPreviewMockup() {
               </span>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 shrink-0">
               <Link
                 href="/admin"
                 className="btn-primary-pill text-xs py-1.5 px-3 shadow-sm inline-flex items-center justify-center gap-1.5 w-full sm:w-auto"
@@ -125,7 +125,7 @@ export default function DashboardPreviewMockup() {
           </div>
 
           {/* Sample Table Rows with Mobile Horizontal Scroll Support */}
-          <div className="overflow-x-auto border border-hairline rounded-lg">
+          <div className="overflow-x-auto border border-hairline rounded-lg w-full max-w-full">
             <div className="sm:hidden px-3 py-1.5 bg-canvas-soft/90 border-b border-hairline text-[10px] text-ink-mute flex items-center justify-between">
               <span className="font-medium text-ink-secondary">Live Line-Up Preview</span>
               <span className="text-primary font-medium">Swipe horizontally →</span>

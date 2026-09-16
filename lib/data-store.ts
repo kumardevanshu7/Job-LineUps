@@ -56,97 +56,11 @@ export const INITIAL_JOBS: JobItem[] = [
   },
 ];
 
-// Rich sample candidates for realistic demonstration
-export const INITIAL_CANDIDATES: CandidateItem[] = [
-  {
-    id: "cand-1",
-    fullName: "Aarav Sharma",
-    phone: "9818234567",
-    email: "aarav.sharma@example.com",
-    location: "Sector 62, Noida",
-    appliedRole: "Documentation Specialist",
-    experienceYears: 2.5,
-    noticePeriodDays: 15,
-    currentCtc: "₹4,80,000",
-    expectedCtc: "₹6,00,000",
-    resumeUrl: "https://drive.google.com/file/d/1sample_aarav_sharma_resume/view",
-    status: "Line-Up Scheduled",
-    interviewDate: new Date(Date.now() + 86400000 * 2).toISOString(),
-    recruiterNotes: "Strong KYC compliance background at Genpact. Communication is crisp.",
-    createdAt: new Date(Date.now() - 86400000 * 3).toISOString(),
-  },
-  {
-    id: "cand-2",
-    fullName: "Pooja Verma",
-    phone: "9910456789",
-    email: "pooja.verma@example.com",
-    location: "Indirapuram, Ghaziabad",
-    appliedRole: "Operations Executive",
-    experienceYears: 3.2,
-    noticePeriodDays: 30,
-    currentCtc: "₹6,20,000",
-    expectedCtc: "₹7,80,000",
-    resumeUrl: "https://drive.google.com/file/d/1sample_pooja_verma_resume/view",
-    status: "Screening Shortlisted",
-    interviewDate: null,
-    recruiterNotes: "Managed dispatch operations for Delhivery. Proficient in SLA tracking.",
-    createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-  },
-  {
-    id: "cand-3",
-    fullName: "Rohan Kulkarni",
-    phone: "9723456781",
-    email: "rohan.kulkarni@example.com",
-    location: "Sector 18, Noida",
-    appliedRole: "HR Trainee",
-    experienceYears: 0.5,
-    noticePeriodDays: 0,
-    currentCtc: "₹3,00,000",
-    expectedCtc: "₹4,00,000",
-    resumeUrl: "https://drive.google.com/file/d/1sample_rohan_kulkarni_resume/view",
-    status: "New Applied",
-    interviewDate: null,
-    recruiterNotes: "Immediate joiner, completed 6-month internship at recruitment consultancy.",
-    createdAt: new Date(Date.now() - 86400000 * 1).toISOString(),
-  },
-  {
-    id: "cand-4",
-    fullName: "Sneha Mukherjee",
-    phone: "9830123456",
-    email: "sneha.m@example.com",
-    location: "Mayur Vihar, New Delhi",
-    appliedRole: "Documentation Specialist",
-    experienceYears: 3.0,
-    noticePeriodDays: 15,
-    currentCtc: "₹5,20,000",
-    expectedCtc: "₹6,50,000",
-    resumeUrl: "https://drive.google.com/file/d/1sample_sneha_mukherjee_resume/view",
-    status: "Selected",
-    interviewDate: new Date(Date.now() - 86400000).toISOString(),
-    recruiterNotes: "Final round cleared with Operations Head. Offer letter drafted.",
-    createdAt: new Date(Date.now() - 86400000 * 5).toISOString(),
-  },
-  {
-    id: "cand-5",
-    fullName: "Vikas Singhania",
-    phone: "9654128901",
-    email: "vikas.singhania@example.com",
-    location: "Greater Noida West",
-    appliedRole: "Operations Executive",
-    experienceYears: 4.0,
-    noticePeriodDays: 45,
-    currentCtc: "₹7,50,000",
-    expectedCtc: "₹9,00,000",
-    resumeUrl: "https://drive.google.com/file/d/1sample_vikas_singhania_resume/view",
-    status: "Interview Done",
-    interviewDate: new Date().toISOString(),
-    recruiterNotes: "Round 1 interview completed successfully. Awaiting feedback from panel.",
-    createdAt: new Date(Date.now() - 86400000 * 4).toISOString(),
-  },
-];
+// Clean candidate store - ready for real recruiter entries
+export const INITIAL_CANDIDATES: CandidateItem[] = [];
 
 // In-memory store fallback for zero-downtime resilience
-let memoryCandidates: CandidateItem[] = [...INITIAL_CANDIDATES];
+let memoryCandidates: CandidateItem[] = [];
 let memoryJobs: JobItem[] = [...INITIAL_JOBS];
 
 export async function getJobs(): Promise<JobItem[]> {

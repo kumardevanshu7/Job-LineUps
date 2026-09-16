@@ -2,19 +2,18 @@
 
 import React from "react";
 import Link from "next/link";
-import { Sparkles } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
+import BrandLogo from "./BrandLogo";
 
 export default function Footer() {
   return (
-    <footer className="bg-canvas border-t border-hairline pt-16 pb-12 text-ink-mute text-xs">
+    <footer className="border-t border-hairline bg-canvas-soft py-12 text-ink-secondary text-xs">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-10 mb-12">
-          {/* Brand Col */}
-          <div className="space-y-3 md:col-span-1">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-10">
+          {/* Col 1 */}
+          <div className="space-y-3">
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-md bg-primary flex items-center justify-center">
-                <Sparkles className="w-3.5 h-3.5 text-white" />
-              </div>
+              <BrandLogo size="sm" className="w-6 h-6 rounded-md" />
               <span className="text-base font-semibold text-ink">
                 Talent<span className="text-primary font-normal">Flow</span>
               </span>
