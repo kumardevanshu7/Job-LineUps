@@ -1,5 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
-import { updateCandidate, deleteCandidate } from "@/lib/data-store";
+import { getCandidateById, updateCandidate, deleteCandidate } from "@/lib/data-store";
+
+export async function GET(
+  req: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const id = params.id;
+    const candidate = await getCandidateById(id);
+
+    if (!candidate) {
+      return NextResponse.json(
+        { success: false, error: "Candidate not found" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      candidate,
+    });
+  } catch (error) {
+    console.error("Get candidate error:", error);
+    return NextResponse.json(
+      { success: false, error: "Failed to get candidate" },
+      { status: 500 }
+    );
+  }
+}
 
 export async function PATCH(
   req: NextRequest,

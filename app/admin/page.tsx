@@ -1,6 +1,9 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { calculateSalaryBreakdown } from "@/lib/salary-utils";
 import RecruiterNavbar from "@/components/RecruiterNavbar";
 import CalendarView from "@/components/CalendarView";
 import AddCandidateModal from "@/components/AddCandidateModal";
@@ -172,6 +175,7 @@ export default function RecruiterAdminPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<"LINEUP" | "CALENDAR" | "LOGS" | "SETTINGS">("LINEUP");
+  const router = useRouter();
 
   // Modals & Profile
   const [recruiterProfile, setRecruiterProfile] = useState<RecruiterProfile | null>(null);
@@ -726,6 +730,7 @@ export default function RecruiterAdminPage() {
         recruiterProfile={recruiterProfile}
         onOpenProfileModal={() => setIsOnboardingModalOpen(true)}
         onSignOut={handleSignOut}
+        candidateCount={candidates.length}
       />
 
       {/* Main Container */}
@@ -857,8 +862,7 @@ export default function RecruiterAdminPage() {
               if (cand) requestStatusChangeWithPin(cand, newStatus);
             }}
             onOpenDetails={(c) => {
-              setDossierCandidate(c);
-              setIsDossierModalOpen(true);
+              router.push(`/admin/candidate/${c.id}`);
             }}
           />
         )}
@@ -1049,7 +1053,14 @@ export default function RecruiterAdminPage() {
                           {c.expectedCtc && (
                             <>
                               <span>•</span>
-                              <span className="text-emerald-700 font-medium">Exp: {c.expectedCtc}</span>
+                              <span className="text-emerald-700 font-medium">
+                                Exp: {c.expectedCtc}
+                                {calculateSalaryBreakdown(c.expectedCtc) && (
+                                  <span className="text-[10px] ml-1 bg-emerald-100/80 px-1 py-0.2 rounded font-semibold text-emerald-800">
+                                    {calculateSalaryBreakdown(c.expectedCtc)?.monthlyShort}
+                                  </span>
+                                )}
+                              </span>
                             </>
                           )}
                         </div>
@@ -1065,51 +1076,39 @@ export default function RecruiterAdminPage() {
                               {dateStr} at {timeStr}
                             </span>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setDossierCandidate(c);
-                              setIsDossierModalOpen(true);
-                            }}
+                          <Link
+                            href={`/admin/candidate/${c.id}`}
                             className="text-[11px] text-primary hover:underline font-semibold shrink-0 py-0.5 inline-flex items-center gap-1"
                           >
                             <RotateCcw className="w-3 h-3" />
                             <span>Reschedule</span>
-                          </button>
+                          </Link>
                         </div>
                       ) : (
                         <div className="p-2.5 rounded-lg bg-white/60 border border-hairline flex items-center justify-between gap-2 text-xs text-ink-mute">
                           <span>No interview scheduled</span>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setDossierCandidate(c);
-                              setIsDossierModalOpen(true);
-                            }}
+                          <Link
+                            href={`/admin/candidate/${c.id}`}
                             className="text-[11px] text-primary font-medium hover:underline shrink-0 py-0.5"
                           >
                             + Schedule Slot
-                          </button>
+                          </Link>
                         </div>
                       )}
 
-                      {/* View Full Dossier & Status Button */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setDossierCandidate(c);
-                          setIsDossierModalOpen(true);
-                        }}
+                      {/* View Full Dossier Page Link */}
+                      <Link
+                        href={`/admin/candidate/${c.id}`}
                         className="w-full py-2 px-3 text-xs font-semibold rounded-lg bg-white/90 hover:bg-white text-ink border border-hairline transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-98"
                       >
                         <Eye className="w-3.5 h-3.5 text-primary" />
-                        <span>View Full Dossier &amp; Reschedule</span>
+                        <span>Open Candidate Dossier Page</span>
                         {c.rescheduleCount && c.rescheduleCount > 0 ? (
                           <span className="ml-1 text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded font-bold">
                             Rescheduled ×{c.rescheduleCount}
                           </span>
                         ) : null}
-                      </button>
+                      </Link>
 
                       {/* Reason for Rejection / Non-Selection Note if set */}
                       {c.rejectionReason && (
@@ -1231,16 +1230,12 @@ export default function RecruiterAdminPage() {
                                   <div className="text-[11px] text-ink-mute">{dateStr}</div>
                                 </div>
                               ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setDossierCandidate(c);
-                                    setIsDossierModalOpen(true);
-                                  }}
+                                <Link
+                                  href={`/admin/candidate/${c.id}`}
                                   className="text-[11px] text-primary hover:underline font-medium"
                                 >
                                   + Set Schedule
-                                </button>
+                                </Link>
                               )}
                             </td>
 
@@ -1288,9 +1283,21 @@ export default function RecruiterAdminPage() {
                             </td>
 
                             <td className="py-3.5 px-4 whitespace-nowrap tabular-nums">
-                              <div className="text-ink text-[11px]">{c.currentCtc || "—"}</div>
-                              <div className="text-[10px] text-emerald-600 font-medium">
-                                Exp: {c.expectedCtc || "—"}
+                              <div className="text-ink text-[11px] flex items-center gap-1.5">
+                                <span>{c.currentCtc || "—"}</span>
+                                {calculateSalaryBreakdown(c.currentCtc) && (
+                                   <span className="text-[10px] text-ink-mute">
+                                     ({calculateSalaryBreakdown(c.currentCtc)?.monthlyShort})
+                                   </span>
+                                 )}
+                              </div>
+                              <div className="text-[10px] text-emerald-700 font-medium flex items-center gap-1">
+                                <span>Exp: {c.expectedCtc || "—"}</span>
+                                {calculateSalaryBreakdown(c.expectedCtc) && (
+                                   <span className="text-[9px] bg-emerald-100 text-emerald-800 px-1 py-0.2 rounded font-semibold">
+                                     {calculateSalaryBreakdown(c.expectedCtc)?.monthlyShort}
+                                   </span>
+                                 )}
                               </div>
                             </td>
 
@@ -1315,17 +1322,13 @@ export default function RecruiterAdminPage() {
                             </td>
 
                             <td className="py-3.5 px-4 text-right whitespace-nowrap space-x-1.5">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setDossierCandidate(c);
-                                  setIsDossierModalOpen(true);
-                                }}
+                              <Link
+                                href={`/admin/candidate/${c.id}`}
                                 className="text-xs text-primary hover:underline font-medium inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md hover:bg-primary/5 border border-hairline transition-all"
                               >
                                 <Eye className="w-3.5 h-3.5" />
                                 <span>View Dossier</span>
-                              </button>
+                              </Link>
                               <button
                                 type="button"
                                 onClick={() => requestDeleteWithPin(c)}

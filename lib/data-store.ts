@@ -219,6 +219,38 @@ export async function createCandidate(
   }
 }
 
+export async function getCandidateById(id: string): Promise<CandidateItem | null> {
+  try {
+    const c = await prisma.candidate.findUnique({
+      where: { id },
+    });
+    if (c) {
+      return {
+        id: c.id,
+        fullName: c.fullName,
+        phone: c.phone,
+        email: c.email,
+        location: c.location,
+        appliedRole: c.appliedRole,
+        experienceYears: c.experienceYears,
+        noticePeriodDays: c.noticePeriodDays,
+        currentCtc: c.currentCtc,
+        expectedCtc: c.expectedCtc,
+        resumeUrl: c.resumeUrl,
+        status: c.status,
+        interviewDate: c.interviewDate ? c.interviewDate.toISOString() : null,
+        recruiterNotes: c.recruiterNotes,
+        createdAt: c.createdAt.toISOString(),
+        updatedAt: c.updatedAt.toISOString(),
+      };
+    }
+  } catch (error) {
+    // Fall back to memory
+  }
+  const mem = memoryCandidates.find((c) => c.id === id);
+  return mem || null;
+}
+
 export async function updateCandidate(
   id: string,
   data: Partial<CandidateItem>

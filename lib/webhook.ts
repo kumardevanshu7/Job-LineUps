@@ -93,16 +93,23 @@ export async function dispatchToGoogleSheets(
       },
       body: JSON.stringify(candidate),
       signal: controller.signal,
+      redirect: "follow",
     });
 
     clearTimeout(timeoutId);
 
     if (response.ok) {
       return { success: true, message: "Synced with Google Sheets" };
+    } else if (response.status === 403) {
+      return {
+        success: false,
+        error:
+          "Webhook returned HTTP 403 Forbidden. Fix: In Google Apps Script, go to Deploy -> Manage deployments -> Edit (pencil) -> Set 'Who has access' to 'Anyone' (not 'Only myself') and click Save.",
+      };
     } else {
       return {
         success: false,
-        error: `Webhook returned status ${response.status}`,
+        error: `Webhook returned status ${response.status} (${response.statusText || "Check URL"})`,
       };
     }
   } catch (err: unknown) {

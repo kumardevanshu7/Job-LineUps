@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { CandidateItem } from "@/lib/types";
+import { calculateSalaryBreakdown } from "@/lib/salary-utils";
 
 interface AddCandidateModalProps {
   isOpen: boolean;
@@ -365,29 +366,53 @@ export default function AddCandidateModal({
             </span>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <label className="block text-xs font-medium text-ink-secondary mb-1">
-                  Current CTC
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-medium text-ink-secondary">
+                    Current CTC
+                  </label>
+                  {calculateSalaryBreakdown(currentCtc) && (
+                    <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded border border-emerald-200 dark:border-emerald-800">
+                      ≈ {calculateSalaryBreakdown(currentCtc)?.monthlyFormatted}
+                    </span>
+                  )}
+                </div>
                 <input
                   type="text"
-                  placeholder="e.g. ₹5,00,000"
+                  placeholder="e.g. 2,00,000 or 5 LPA"
                   value={currentCtc}
                   onChange={(e) => setCurrentCtc(e.target.value)}
                   className="w-full text-base sm:text-sm px-3 py-2.5 sm:py-2 rounded-md border border-hairline-input focus:outline-none focus:border-primary bg-canvas text-ink"
                 />
+                {calculateSalaryBreakdown(currentCtc) && (
+                  <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium mt-1">
+                    Monthly: <span className="font-semibold">{calculateSalaryBreakdown(currentCtc)?.monthlyFormatted}</span>
+                  </p>
+                )}
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-ink-secondary mb-1">
-                  Expected CTC
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-medium text-ink-secondary">
+                    Expected CTC
+                  </label>
+                  {calculateSalaryBreakdown(expectedCtc) && (
+                    <span className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-1.5 py-0.5 rounded border border-emerald-200 dark:border-emerald-800">
+                      ≈ {calculateSalaryBreakdown(expectedCtc)?.monthlyFormatted}
+                    </span>
+                  )}
+                </div>
                 <input
                   type="text"
-                  placeholder="e.g. ₹6,50,000"
+                  placeholder="e.g. 7,00,000 or 7 LPA"
                   value={expectedCtc}
                   onChange={(e) => setExpectedCtc(e.target.value)}
                   className="w-full text-base sm:text-sm px-3 py-2.5 sm:py-2 rounded-md border border-hairline-input focus:outline-none focus:border-primary bg-canvas text-ink"
                 />
+                {calculateSalaryBreakdown(expectedCtc) && (
+                  <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium mt-1">
+                    Monthly: <span className="font-semibold">{calculateSalaryBreakdown(expectedCtc)?.monthlyFormatted}</span>
+                  </p>
+                )}
               </div>
 
               <div>

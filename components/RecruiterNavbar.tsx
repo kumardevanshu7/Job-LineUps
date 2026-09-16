@@ -10,6 +10,8 @@ import {
   ArrowLeft,
   Activity,
   Settings,
+  Users,
+  Calendar,
 } from "lucide-react";
 import { User } from "firebase/auth";
 import { RecruiterProfile } from "@/lib/types";
@@ -25,6 +27,7 @@ interface RecruiterNavbarProps {
   recruiterProfile?: RecruiterProfile | null;
   onOpenProfileModal?: () => void;
   onSignOut?: () => void;
+  candidateCount?: number;
 }
 
 export default function RecruiterNavbar({
@@ -36,163 +39,205 @@ export default function RecruiterNavbar({
   recruiterProfile,
   onOpenProfileModal,
   onSignOut,
+  candidateCount,
 }: RecruiterNavbarProps) {
   return (
-    <header className="sticky top-0 z-40 w-full backdrop-blur-md bg-white/90 border-b border-hairline transition-all">
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2">
-        {/* Left: Back to Site + Brand */}
-        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
-          <Link
-            href="/"
-            className="p-1.5 rounded-md text-ink-mute hover:text-ink hover:bg-canvas-soft border border-hairline transition-colors"
-            title="Back to Landing Page"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </Link>
+    <header className="sticky top-0 z-40 w-full shadow-xs">
+      {/* ========================================================================= */}
+      {/* LAYER 1: Top Command & Primary Actions Header                            */}
+      {/* ========================================================================= */}
+      <div className="w-full backdrop-blur-md bg-white/95 border-b border-hairline/80">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-3">
+          {/* Left: Back to Home + Recruiter Brand & Cursive Logo */}
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <Link
+              href="/"
+              className="p-1.5 rounded-lg text-ink-mute hover:text-ink hover:bg-canvas-soft border border-hairline transition-colors"
+              title="Back to Landing Page"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </Link>
 
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            {recruiterProfile?.avatarInitial ? (
-              <button
-                type="button"
-                onClick={onOpenProfileModal}
-                title={`Recruiter Logo (${recruiterProfile.avatarInitial}) — Tap to edit profile`}
-                className="focus:outline-none transition-transform hover:scale-105 active:scale-95 shrink-0"
-              >
-                <CursiveAvatar
-                  initial={recruiterProfile.avatarInitial}
-                  colorId={recruiterProfile.avatarColorId}
-                  size="sm"
-                  className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg shadow-sm"
-                />
-              </button>
-            ) : (
-              <BrandLogo size="sm" className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg" />
-            )}
-            <div className="flex flex-col">
-              <span className="text-[16px] sm:text-[18px] font-semibold tracking-tight text-ink leading-tight">
-                Talent<span className="text-primary font-normal">Flow</span>
-              </span>
-              <span className="text-[9px] sm:text-[10px] uppercase tracking-widest text-primary font-semibold hidden sm:block">
-                Recruiter Command
-              </span>
+            <div className="flex items-center gap-2">
+              {recruiterProfile?.avatarInitial ? (
+                <button
+                  type="button"
+                  onClick={onOpenProfileModal}
+                  title={`Recruiter Logo (${recruiterProfile.avatarInitial}) — Click to edit profile`}
+                  className="focus:outline-none transition-transform hover:scale-105 active:scale-95 shrink-0"
+                >
+                  <CursiveAvatar
+                    initial={recruiterProfile.avatarInitial}
+                    colorId={recruiterProfile.avatarColorId}
+                    size="sm"
+                    className="w-8 h-8 rounded-lg shadow-2xs"
+                  />
+                </button>
+              ) : (
+                <BrandLogo size="sm" className="w-8 h-8 rounded-lg shadow-2xs" />
+              )}
+              <div className="flex flex-col">
+                <span className="text-[17px] sm:text-[19px] font-bold tracking-tight text-ink leading-tight">
+                  Talent<span className="text-primary font-medium">Flow</span>
+                </span>
+                <span className="text-[9px] sm:text-[10px] uppercase tracking-widest text-primary font-semibold hidden sm:block">
+                  Recruiter Command
+                </span>
+              </div>
             </div>
           </div>
-        </div>
 
-        {/* Center: Desktop View Switcher Tabs */}
-        <div className="hidden md:flex items-center gap-1 bg-canvas-soft p-1 rounded-pill border border-hairline text-xs font-medium">
-          <button
-            onClick={() => onTabChange("LINEUP")}
-            className={`px-3.5 py-1.5 rounded-pill transition-all ${
-              activeTab === "LINEUP"
-                ? "bg-brand-dark text-white shadow-sm font-semibold"
-                : "text-ink-secondary hover:text-ink"
-            }`}
-          >
-            Candidate Line-Up
-          </button>
-          <button
-            onClick={() => onTabChange("CALENDAR")}
-            className={`px-3.5 py-1.5 rounded-pill transition-all ${
-              activeTab === "CALENDAR"
-                ? "bg-brand-dark text-white shadow-sm font-semibold"
-                : "text-ink-secondary hover:text-ink"
-            }`}
-          >
-            Interview Calendar
-          </button>
-          <button
-            onClick={() => onTabChange("LOGS")}
-            className={`px-3.5 py-1.5 rounded-pill transition-all flex items-center gap-1.5 ${
-              activeTab === "LOGS"
-                ? "bg-brand-dark text-white shadow-sm font-semibold"
-                : "text-ink-secondary hover:text-ink"
-            }`}
-          >
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.9)]"></span>
-            </span>
-            <span>Activity Logs</span>
-          </button>
-          <button
-            onClick={() => onTabChange("SETTINGS")}
-            className={`px-3 py-1.5 rounded-pill transition-all flex items-center gap-1 ${
-              activeTab === "SETTINGS"
-                ? "bg-brand-dark text-white shadow-sm font-semibold"
-                : "text-ink-secondary hover:text-ink"
-            }`}
-            title="Settings & Security PIN"
-          >
-            <Settings className="w-3.5 h-3.5" />
-            <span>Settings</span>
-          </button>
-        </div>
+          {/* Right: Actions (Add Candidate, Export, Profile, Logout) */}
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            {/* Manager Export Button */}
+            <button
+              onClick={onOpenExportModal}
+              className="hidden sm:inline-flex btn-secondary-pill text-xs py-1.5 px-3 items-center gap-1.5 text-ink-secondary hover:text-emerald-700 hover:border-emerald-300 transition-all shadow-2xs"
+              title="Download Line-Up for Manager (.xlsx)"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              <span className="font-medium">Manager Export (.xlsx)</span>
+            </button>
 
-        {/* Right Actions: Add Candidate, Export, Google Profile */}
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-          {/* Manager Export Button (Desktop) */}
-          <button
-            onClick={onOpenExportModal}
-            className="hidden sm:inline-flex btn-secondary-pill text-xs py-1.5 px-3 items-center gap-1.5 text-ink-secondary hover:text-emerald-700"
-            title="Download Line-Up for Manager (.xlsx)"
-          >
-            <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Manager Export (.xlsx)</span>
-          </button>
+            {/* Primary Add Candidate CTA */}
+            <button
+              onClick={onOpenAddModal}
+              className="btn-primary-pill text-xs py-1.5 sm:py-2 px-3 sm:px-4 inline-flex items-center gap-1.5 shadow-2xs shrink-0"
+            >
+              <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[2.5]" />
+              <span className="font-semibold hidden sm:inline">Add Candidate</span>
+              <span className="font-semibold sm:hidden">Add</span>
+            </button>
 
-          {/* + Add Candidate Primary CTA */}
-          <button
-            onClick={onOpenAddModal}
-            className="btn-primary-pill text-xs py-1.5 sm:py-2 px-2.5 sm:px-3.5 inline-flex items-center gap-1 shadow-sm shrink-0"
-          >
-            <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
-            <span className="font-medium hidden sm:inline">Add Candidate</span>
-            <span className="font-medium sm:hidden">Add</span>
-          </button>
-
-          {/* Recruiter Cursive Avatar & Profile Button */}
-          {currentUser && (
-            <div className="flex items-center gap-1.5 sm:gap-2 border-l border-hairline pl-2 ml-0.5 shrink-0">
-              <button
-                onClick={onOpenProfileModal}
-                className="flex items-center gap-2 group text-left focus:outline-none"
-                title="Click to customize your profile & cursive logo avatar"
-              >
-                <CursiveAvatar
-                  initial={
-                    recruiterProfile?.avatarInitial ||
-                    currentUser.displayName?.trim().charAt(0) ||
-                    "K"
-                  }
-                  colorId={recruiterProfile?.avatarColorId || "lavender"}
-                  size="sm"
-                  className="group-hover:scale-105 group-hover:ring-2 group-hover:ring-primary/40 transition-all"
-                />
-
-                <div className="hidden lg:flex flex-col text-[11px] leading-tight text-left">
-                  <span className="font-semibold text-ink truncate max-w-28 group-hover:text-primary transition-colors">
-                    {recruiterProfile?.name || currentUser.displayName || "Recruiter"}
-                  </span>
-                  <span className="text-[10px] text-ink-mute truncate max-w-28">
-                    {recruiterProfile?.position
-                      ? `${recruiterProfile.position}`
-                      : currentUser.email}
-                  </span>
-                </div>
-              </button>
-
-              {onSignOut && (
+            {/* Recruiter Profile Monogram Chip & Sign Out */}
+            {currentUser && (
+              <div className="flex items-center gap-1.5 sm:gap-2 border-l border-hairline pl-2 sm:pl-3 ml-0.5 shrink-0">
                 <button
-                  onClick={onSignOut}
-                  className="p-1 rounded-md text-ink-mute hover:text-rose-600 hover:bg-rose-50 transition-colors shrink-0"
-                  title="Sign Out of Google Account"
+                  onClick={onOpenProfileModal}
+                  className="flex items-center gap-2 group text-left focus:outline-none p-1 rounded-lg hover:bg-canvas-soft transition-colors"
+                  title="Click to customize profile & logo"
                 >
-                  <LogOut className="w-3.5 h-3.5" />
+                  <CursiveAvatar
+                    initial={
+                      recruiterProfile?.avatarInitial ||
+                      currentUser.displayName?.trim().charAt(0) ||
+                      "K"
+                    }
+                    colorId={recruiterProfile?.avatarColorId || "lavender"}
+                    size="sm"
+                    className="w-7 h-7 rounded-lg group-hover:ring-2 group-hover:ring-primary/40 transition-all shrink-0"
+                  />
+
+                  <div className="hidden lg:flex flex-col text-[11px] leading-tight text-left">
+                    <span className="font-semibold text-ink truncate max-w-28 group-hover:text-primary transition-colors">
+                      {recruiterProfile?.name || currentUser.displayName || "Recruiter"}
+                    </span>
+                    <span className="text-[10px] text-ink-mute truncate max-w-28">
+                      {recruiterProfile?.position || currentUser.email}
+                    </span>
+                  </div>
                 </button>
+
+                {onSignOut && (
+                  <button
+                    onClick={onSignOut}
+                    className="p-1.5 rounded-lg text-ink-mute hover:text-rose-600 hover:bg-rose-50 transition-colors shrink-0"
+                    title="Sign Out"
+                  >
+                    <LogOut className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ========================================================================= */}
+      {/* LAYER 2: Sub-Navigation Strip (Dedicated Tab Navigation Bar)             */}
+      {/* ========================================================================= */}
+      <div className="w-full bg-white/95 backdrop-blur-md border-b border-hairline">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-11 sm:h-12 flex items-center justify-between gap-2 overflow-x-auto no-scrollbar">
+          {/* Clean Horizontal Tabs Strip */}
+          <nav className="flex items-center gap-1 sm:gap-1.5 text-xs font-medium">
+            {/* Tab 1: Line-Up */}
+            <button
+              onClick={() => onTabChange("LINEUP")}
+              className={`px-3.5 py-1.5 rounded-lg transition-all flex items-center gap-2 shrink-0 ${
+                activeTab === "LINEUP"
+                  ? "bg-brand-dark text-white font-semibold shadow-xs"
+                  : "text-ink-secondary hover:text-ink hover:bg-canvas-soft"
+              }`}
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span>Candidate Line-Up</span>
+              {typeof candidateCount === "number" && (
+                <span
+                  className={`text-[10px] px-1.5 py-0.2 rounded-full font-bold tabular-nums ${
+                    activeTab === "LINEUP"
+                      ? "bg-white/25 text-white"
+                      : "bg-canvas-soft text-ink-mute border border-hairline"
+                  }`}
+                >
+                  {candidateCount}
+                </span>
               )}
-            </div>
-          )}
+            </button>
+
+            {/* Tab 2: Interview Calendar */}
+            <button
+              onClick={() => onTabChange("CALENDAR")}
+              className={`px-3.5 py-1.5 rounded-lg transition-all flex items-center gap-2 shrink-0 ${
+                activeTab === "CALENDAR"
+                  ? "bg-brand-dark text-white font-semibold shadow-xs"
+                  : "text-ink-secondary hover:text-ink hover:bg-canvas-soft"
+              }`}
+            >
+              <Calendar className="w-3.5 h-3.5" />
+              <span>Interview Calendar</span>
+            </button>
+
+            {/* Tab 3: Activity Logs (with live glowing pulse dot) */}
+            <button
+              onClick={() => onTabChange("LOGS")}
+              className={`px-3.5 py-1.5 rounded-lg transition-all flex items-center gap-2 shrink-0 ${
+                activeTab === "LOGS"
+                  ? "bg-brand-dark text-white font-semibold shadow-xs"
+                  : "text-ink-secondary hover:text-ink hover:bg-canvas-soft"
+              }`}
+            >
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.9)]"></span>
+              </span>
+              <span>Activity Logs</span>
+            </button>
+
+            {/* Tab 4: Settings & Security Controls */}
+            <button
+              onClick={() => onTabChange("SETTINGS")}
+              className={`px-3.5 py-1.5 rounded-lg transition-all flex items-center gap-2 shrink-0 ${
+                activeTab === "SETTINGS"
+                  ? "bg-brand-dark text-white font-semibold shadow-xs"
+                  : "text-ink-secondary hover:text-ink hover:bg-canvas-soft"
+              }`}
+              title="Settings & Security PIN"
+            >
+              <Settings className="w-3.5 h-3.5" />
+              <span>Settings</span>
+            </button>
+          </nav>
+
+          {/* Quick Mobile Action (Export) */}
+          <div className="sm:hidden flex items-center shrink-0">
+            <button
+              onClick={onOpenExportModal}
+              className="text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-200 flex items-center gap-1"
+            >
+              <FileSpreadsheet className="w-3 h-3 text-emerald-600" />
+              <span>Export</span>
+            </button>
+          </div>
         </div>
       </div>
     </header>

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { ChevronDown, Check } from "lucide-react";
 import { CandidateStatus } from "@/lib/types";
 
@@ -82,7 +83,14 @@ export default function CandidateStatusDropdown({
   disabled = false,
 }: CandidateStatusDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [mounted, setMounted] = useState(false);
+  const [coords, setCoords] = useState<{ top?: number; bottom?: number; left: number }>({ left: 0 });
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const meta = STATUS_META_MAP[currentStatus] || STATUS_META_MAP["New Applied"];
 
@@ -91,28 +99,65 @@ export default function CandidateStatusDropdown({
     if (onSelectStatus) onSelectStatus(newStatus);
   };
 
-  // Click outside to close
+  const toggleDropdown = () => {
+    if (disabled) return;
+    if (!isOpen && buttonRef.current) {
+      const rect = buttonRef.current.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      const shouldOpenUpwards = spaceBelow < 240;
+
+      const left = Math.max(8, Math.min(rect.left, window.innerWidth - 208));
+      if (shouldOpenUpwards) {
+        setCoords({
+          bottom: window.innerHeight - rect.top + 6,
+          left,
+        });
+      } else {
+        setCoords({
+          top: rect.bottom + 6,
+          left,
+        });
+      }
+    }
+    setIsOpen((prev) => !prev);
+  };
+
+  // Click outside or scroll to close
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+      const target = e.target as Node;
+      if (
+        menuRef.current &&
+        !menuRef.current.contains(target) &&
+        buttonRef.current &&
+        !buttonRef.current.contains(target)
+      ) {
         setIsOpen(false);
       }
     }
+    function handleScrollOrResize() {
+      setIsOpen(false);
+    }
     if (isOpen) {
       document.addEventListener("mousedown", handleClickOutside);
+      window.addEventListener("scroll", handleScrollOrResize, true);
+      window.addEventListener("resize", handleScrollOrResize);
     }
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("scroll", handleScrollOrResize, true);
+      window.removeEventListener("resize", handleScrollOrResize);
     };
   }, [isOpen]);
 
   return (
-    <div ref={dropdownRef} className={`relative inline-block text-left ${className}`}>
+    <div className={`relative inline-block text-left ${className}`}>
       {/* Pill trigger */}
       <button
+        ref={buttonRef}
         type="button"
         disabled={disabled}
-        onClick={() => setIsOpen((prev) => !prev)}
+        onClick={toggleDropdown}
         className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border flex items-center justify-between gap-1.5 shadow-2xs transition-all focus:outline-none shrink-0 ${
           meta.pillBg
         } ${meta.pillText} ${meta.pillBorder} ${
@@ -132,46 +177,57 @@ export default function CandidateStatusDropdown({
         />
       </button>
 
-      {/* Floating Menu with colored dots */}
-      {isOpen && (
-        <div
-          role="listbox"
-          className="absolute right-0 sm:left-0 top-full mt-1.5 w-48 rounded-xl bg-white border border-hairline shadow-level3 py-1.5 z-50 animate-in fade-in-50 zoom-in-95 duration-100"
-        >
-          <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-ink-mute border-b border-hairline mb-1">
-            Pipeline Stage
-          </div>
-          {STATUS_LIST.map((status) => {
-            const itemMeta = STATUS_META_MAP[status] || STATUS_META_MAP["New Applied"];
-            const isSelected = status === currentStatus;
-            return (
-              <button
-                key={status}
-                type="button"
-                role="option"
-                aria-selected={isSelected}
-                onClick={() => {
-                  setIsOpen(false);
-                  if (status !== currentStatus) {
-                    handleSelect(status);
-                  }
-                }}
-                className={`w-full text-left px-3 py-1.5 text-xs flex items-center justify-between transition-colors ${
-                  isSelected
-                    ? "bg-primary/10 text-primary font-semibold"
-                    : "text-ink hover:bg-canvas-soft"
-                }`}
-              >
-                <span className="flex items-center gap-2">
-                  <span className={`w-2 h-2 rounded-full shrink-0 ${itemMeta.dotColor}`} />
-                  <span>{itemMeta.label}</span>
-                </span>
-                {isSelected && <Check className="w-3.5 h-3.5 text-primary shrink-0" />}
-              </button>
-            );
-          })}
-        </div>
-      )}
+      {/* Floating Menu via Portal to prevent any container clipping */}
+      {isOpen &&
+        mounted &&
+        createPortal(
+          <div
+            ref={menuRef}
+            role="listbox"
+            style={{
+              position: "fixed",
+              top: coords.top !== undefined ? `${coords.top}px` : undefined,
+              bottom: coords.bottom !== undefined ? `${coords.bottom}px` : undefined,
+              left: `${coords.left}px`,
+              zIndex: 99999,
+            }}
+            className="w-48 rounded-xl bg-white border border-hairline shadow-level3 py-1.5 animate-in fade-in-50 zoom-in-95 duration-100"
+          >
+            <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-ink-mute border-b border-hairline mb-1">
+              Pipeline Stage
+            </div>
+            {STATUS_LIST.map((status) => {
+              const itemMeta = STATUS_META_MAP[status] || STATUS_META_MAP["New Applied"];
+              const isSelected = status === currentStatus;
+              return (
+                <button
+                  key={status}
+                  type="button"
+                  role="option"
+                  aria-selected={isSelected}
+                  onClick={() => {
+                    setIsOpen(false);
+                    if (status !== currentStatus) {
+                      handleSelect(status);
+                    }
+                  }}
+                  className={`w-full text-left px-3 py-1.5 text-xs flex items-center justify-between transition-colors ${
+                    isSelected
+                      ? "bg-primary/10 text-primary font-semibold"
+                      : "text-ink hover:bg-canvas-soft"
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <span className={`w-2 h-2 rounded-full shrink-0 ${itemMeta.dotColor}`} />
+                    <span>{itemMeta.label}</span>
+                  </span>
+                  {isSelected && <Check className="w-3.5 h-3.5 text-primary shrink-0" />}
+                </button>
+              );
+            })}
+          </div>,
+          document.body
+        )}
     </div>
   );
 }

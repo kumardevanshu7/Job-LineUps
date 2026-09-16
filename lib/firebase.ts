@@ -118,6 +118,23 @@ export async function updateCandidateInFirestore(
   }
 }
 
+// Firestore Sync: Get single candidate by ID
+export async function getCandidateFromFirestore(
+  candidateId: string
+): Promise<CandidateItem | null> {
+  try {
+    const docRef = doc(db, "candidates", candidateId);
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+      return snap.data() as CandidateItem;
+    }
+    return null;
+  } catch (err) {
+    console.warn("Firestore get candidate error:", err);
+    return null;
+  }
+}
+
 // Firestore Sync: Save recruiter onboarding profile
 export async function saveRecruiterProfileToFirestore(profile: RecruiterProfile) {
   try {

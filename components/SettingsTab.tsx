@@ -13,9 +13,17 @@ import {
   User,
   Save,
   Send,
+  Eye,
+  EyeOff,
+  Info,
+  Copy,
+  Check,
+  ExternalLink,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { CandidateItem, RecruiterProfile, AppSettings, ActivityLogItem } from "@/lib/types";
+import { GOOGLE_APPS_SCRIPT_TEMPLATE } from "@/lib/webhook";
 import CursiveAvatar from "./CursiveAvatar";
 
 interface SettingsTabProps {
@@ -36,6 +44,7 @@ export default function SettingsTab({
   logs,
 }: SettingsTabProps) {
   const [currentPin, setCurrentPin] = useState(settings.securityPin || "1234");
+  const [showPin, setShowPin] = useState(false);
   const [newPin, setNewPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
   const [pinEnabled, setPinEnabled] = useState(settings.pinProtectionEnabled);
@@ -45,6 +54,8 @@ export default function SettingsTab({
 
   const [testingWebhook, setTestingWebhook] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
+  const [isWebhookGuideOpen, setIsWebhookGuideOpen] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(false);
 
   // 1-Click JSON Data Export
   const handleExportJson = () => {
@@ -217,9 +228,23 @@ export default function SettingsTab({
                 Active Security PIN:
               </label>
               <div className="flex items-center gap-2">
-                <span className="font-mono text-xs px-3 py-1.5 rounded-lg border border-hairline bg-canvas-soft font-bold text-ink">
-                  {currentPin}
-                </span>
+                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-hairline bg-canvas-soft">
+                  <span className="font-mono text-xs font-bold text-ink tracking-widest">
+                    {showPin ? currentPin : "••••"}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowPin(!showPin)}
+                    className="text-ink-mute hover:text-ink transition-colors focus:outline-none p-0.5"
+                    title={showPin ? "Hide Security PIN" : "Reveal Security PIN"}
+                  >
+                    {showPin ? (
+                      <EyeOff className="w-3.5 h-3.5" />
+                    ) : (
+                      <Eye className="w-3.5 h-3.5" />
+                    )}
+                  </button>
+                </div>
                 <span className="text-[11px] text-ink-mute">(Default: 1234)</span>
               </div>
             </div>
@@ -324,17 +349,52 @@ export default function SettingsTab({
 
         {/* Box 3: Google Sheets Webhook Configuration */}
         <div className="bg-canvas border border-hairline rounded-2xl p-5 sm:p-6 shadow-level1 space-y-4">
-          <div className="flex items-center gap-2.5 pb-3 border-b border-hairline">
-            <div className="w-9 h-9 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center">
-              <Workflow className="w-5 h-5" />
+          <div className="flex items-center justify-between pb-3 border-b border-hairline">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-purple-50 text-purple-700 flex items-center justify-center">
+                <Workflow className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-semibold text-ink">
+                    Google Sheets Live Webhook
+                  </h3>
+                  {/* (i) Info icon button */}
+                  <button
+                    type="button"
+                    onClick={() => setIsWebhookGuideOpen(true)}
+                    className="p-1 rounded-full text-primary hover:bg-primary/10 border border-primary/20 transition-all inline-flex items-center gap-1 text-[11px] font-medium"
+                    title="Click for code & setup instructions"
+                  >
+                    <Info className="w-3.5 h-3.5" />
+                    <span>How to connect (i)</span>
+                  </button>
+                </div>
+                <p className="text-[11px] text-ink-mute">
+                  Automatically push candidate submissions to Google Sheets.
+                </p>
+              </div>
             </div>
-            <div>
-              <h3 className="text-sm font-semibold text-ink">
-                Google Sheets Live Webhook
-              </h3>
-              <p className="text-[11px] text-ink-mute">
-                Automatically push candidate submissions to Google Sheets.
+          </div>
+
+          {/* Quick Notice to prevent HTTP 403 */}
+          <div className="p-3 rounded-xl bg-purple-50/70 border border-purple-200/80 text-xs text-purple-950 flex items-start gap-2.5">
+            <Info className="w-4 h-4 text-purple-600 shrink-0 mt-0.5" />
+            <div className="text-[11px] space-y-1">
+              <p className="font-semibold text-purple-900">
+                Crucial Deployment Step (Prevents Error 403 Forbidden):
               </p>
+              <p className="text-purple-850">
+                In Apps Script deployment settings, set <strong>&quot;Who has access&quot;</strong> to <strong>&quot;Anyone&quot;</strong>. If set to &quot;Only myself&quot;, Google blocks all incoming sync pings.
+              </p>
+              <button
+                type="button"
+                onClick={() => setIsWebhookGuideOpen(true)}
+                className="text-primary font-semibold hover:underline inline-flex items-center gap-1 mt-0.5"
+              >
+                <span>View 1-Click Code &amp; Step-by-Step Guide</span>
+                <ExternalLink className="w-3 h-3" />
+              </button>
             </div>
           </div>
 
@@ -410,6 +470,154 @@ export default function SettingsTab({
           </button>
         </div>
       </div>
+
+      {/* Webhook Code & Setup Instructions Modal */}
+      {isWebhookGuideOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-canvas border border-hairline rounded-2xl shadow-level3 max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-150">
+            {/* Header */}
+            <div className="px-5 py-4 border-b border-hairline flex items-center justify-between bg-canvas-soft shrink-0">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-purple-100 dark:bg-purple-950/60 text-purple-700 dark:text-purple-400 flex items-center justify-center">
+                  <Workflow className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm sm:text-base font-semibold text-ink">
+                    Google Sheets Live Webhook Setup Guide
+                  </h3>
+                  <p className="text-[11px] text-ink-mute">
+                    Step-by-step instructions and 1-click script code
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsWebhookGuideOpen(false)}
+                className="p-1.5 rounded-lg text-ink-mute hover:text-ink hover:bg-canvas transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Scrollable Modal Content */}
+            <div className="p-5 sm:p-6 overflow-y-auto space-y-5 text-xs text-ink leading-relaxed">
+              {/* Critical Alert about 403 */}
+              <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-900 dark:text-amber-200 space-y-1.5">
+                <div className="flex items-center gap-1.5 font-bold text-xs text-amber-800 dark:text-amber-300">
+                  <AlertCircle className="w-4 h-4 shrink-0 text-amber-600" />
+                  <span>CRITICAL: How to Avoid Error 403 Forbidden</span>
+                </div>
+                <p className="text-[11px] leading-relaxed">
+                  When creating the Web App deployment in Google Apps Script, you <strong>MUST</strong> set{" "}
+                  <code className="bg-amber-200/60 dark:bg-amber-900/60 px-1 py-0.5 rounded font-mono font-bold">
+                    Who has access: Anyone
+                  </code>
+                  . If left as <em>&quot;Only myself&quot;</em>, Google will block TalentFlow from connecting and return a 403 error.
+                </p>
+              </div>
+
+              {/* Numbered Steps */}
+              <div>
+                <h4 className="text-xs font-bold uppercase tracking-wider text-primary mb-3">
+                  Step-by-Step Connection Instructions:
+                </h4>
+                <ol className="space-y-2.5 text-xs text-ink-secondary list-decimal list-inside pl-1">
+                  <li>
+                    Open your <strong>Google Sheet</strong> (where you want candidates to appear).
+                  </li>
+                  <li>
+                    In the top menu, click <strong>Extensions</strong> &rarr; <strong>Apps Script</strong>.
+                  </li>
+                  <li>
+                    Delete any existing template code inside <code className="font-mono bg-canvas-soft px-1 rounded">Code.gs</code>.
+                  </li>
+                  <li>
+                    Copy and paste the <strong>TalentFlow Sync Script</strong> provided below into the editor.
+                  </li>
+                  <li>
+                    Click the blue <strong>Deploy</strong> button (top right) &rarr; select <strong>New deployment</strong>.
+                  </li>
+                  <li>
+                    Click the gear icon (⚙️) next to &quot;Select type&quot; and choose <strong>Web app</strong>.
+                  </li>
+                  <li>
+                    Fill in deployment configuration:
+                    <ul className="list-disc list-inside pl-5 mt-1 space-y-1 text-ink font-medium">
+                      <li>Description: <span className="font-normal font-mono text-ink-mute">TalentFlow Sync</span></li>
+                      <li>Execute as: <span className="text-emerald-700 dark:text-emerald-400 font-bold">Me (your Google email)</span></li>
+                      <li>
+                        Who has access:{" "}
+                        <span className="text-rose-600 dark:text-rose-400 font-bold underline decoration-rose-400">
+                          Anyone
+                        </span>{" "}
+                        <span className="text-[10px] text-ink-mute font-normal">(Do NOT choose &quot;Only myself&quot;)</span>
+                      </li>
+                    </ul>
+                  </li>
+                  <li>
+                    Click <strong>Deploy</strong> &rarr; click <strong>Authorize access</strong> &rarr; choose your Google account &rarr; click <em>Advanced</em> &rarr; <em>Go to TalentFlow Sync (unsafe)</em> &rarr; <em>Allow</em>.
+                  </li>
+                  <li>
+                    Copy the generated <strong>Web app URL</strong> (starts with <code className="font-mono bg-canvas-soft px-1 rounded">https://script.google.com/macros/s/.../exec</code>).
+                  </li>
+                  <li>
+                    Paste the URL into the <strong>Google Apps Script Web App URL</strong> field in TalentFlow and click <strong>Test Webhook Ping</strong>!
+                  </li>
+                </ol>
+              </div>
+
+              {/* Code Box with 1-Click Copy */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-bold text-ink">
+                    Google Apps Script Code (<code className="font-mono text-primary">Code.gs</code>)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(GOOGLE_APPS_SCRIPT_TEMPLATE);
+                      setCopiedCode(true);
+                      toast.success("Apps Script code copied to clipboard!");
+                      setTimeout(() => setCopiedCode(false), 2500);
+                    }}
+                    className="btn-primary-pill text-xs py-1.5 px-3 inline-flex items-center gap-1.5 shadow-2xs"
+                  >
+                    {copiedCode ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-300" />
+                        <span>Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Copy Apps Script Code</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                <pre className="p-3.5 rounded-xl bg-slate-950 text-slate-100 font-mono text-[11px] leading-relaxed overflow-x-auto max-h-64 border border-slate-800 selection:bg-primary/30">
+                  <code>{GOOGLE_APPS_SCRIPT_TEMPLATE}</code>
+                </pre>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-5 py-3 border-t border-hairline bg-canvas-soft flex items-center justify-between">
+              <span className="text-[11px] text-ink-mute">
+                Need to re-deploy? Use &quot;Manage deployments&quot; &rarr; Edit &rarr; New version.
+              </span>
+              <button
+                type="button"
+                onClick={() => setIsWebhookGuideOpen(false)}
+                className="btn-secondary-pill text-xs py-1.5 px-4"
+              >
+                Close Guide
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
