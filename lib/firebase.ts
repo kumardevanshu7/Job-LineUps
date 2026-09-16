@@ -31,6 +31,7 @@ import {
   CollaboratorParty,
   Team,
   TeamJoinRequest,
+  WebhookWorkspace,
 } from "./types";
 
 export const firebaseConfig = {
@@ -618,4 +619,138 @@ export async function updateTeamRequestStatusInFirestore(
   } catch (err) {
     console.warn("Firestore update team request status error:", err);
   }
+}
+
+// ==========================================
+// WEBHOOK WORKSPACES FIRESTORE OPERATIONS
+// ==========================================
+
+// Save or update a webhook workspace
+export async function saveWebhookWorkspaceToFirestore(workspace: WebhookWorkspace) {
+  try {
+    const docRef = doc(db, "webhook_workspaces", workspace.id);
+    await setDoc(docRef, {
+      ...workspace,
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.warn("Firestore save webhook workspace error:", err);
+  }
+}
+
+// Delete a webhook workspace
+export async function deleteWebhookWorkspaceFromFirestore(workspaceId: string) {
+  try {
+    const docRef = doc(db, "webhook_workspaces", workspaceId);
+    await deleteDoc(docRef);
+  } catch (err) {
+    console.warn("Firestore delete webhook workspace error:", err);
+  }
+}
+
+// Get all webhook workspaces for a recruiter
+export async function getWebhookWorkspacesFromFirestore(
+  recruiterUid?: string
+): Promise<WebhookWorkspace[]> {
+  try {
+    const collRef = collection(db, "webhook_workspaces");
+    let snap;
+    try {
+      const q = query(collRef, orderBy("createdAt", "desc"));
+      snap = await getDocs(q);
+    } catch {
+      snap = await getDocs(collRef);
+    }
+    const list: WebhookWorkspace[] = [];
+    snap.forEach((d) => {
+      const data = d.data() as WebhookWorkspace;
+      if (!recruiterUid || data.recruiterUid === recruiterUid) {
+        list.push(data);
+      }
+    });
+    return list.sort(
+      (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+    );
+  } catch (err) {
+    console.warn("Firestore get webhook workspaces error:", err);
+    return [];
+  }
+}
+
+// Subscribe to webhook workspaces in real-time
+export function subscribeToWebhookWorkspacesFromFirestore(
+  callback: (workspaces: WebhookWorkspace[]) => void,
+  recruiterUid?: string
+) {
+  try {
+    const collRef = collection(db, "webhook_workspaces");
+    let q;
+    try {
+      q = query(collRef, orderBy("createdAt", "desc"));
+    } catch {
+      q = collRef;
+    }
+    return onSnapshot(
+      q,
+      (snap) => {
+        const list: WebhookWorkspace[] = [];
+        snap.forEach((d) => {
+          const data = d.data() as WebhookWorkspace;
+          if (!recruiterUid || data.recruiterUid === recruiterUid) {
+            list.push(data);
+          }
+        });
+        list.sort(
+          (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+        );
+        callback(list);
+      },
+      (err) => {
+        console.warn("Firestore webhook workspaces subscription error:", err);
+      }
+    );
+  } catch (err) {
+    console.warn("Firestore webhook workspaces subscription init error:", err);
+    return () => {};
+  }
+}
+
+// Helper: Get all active webhook URLs for a given applied role
+export async function getAllActiveWebhooksForRole(appliedRole?: string): Promise<string[]> {
+  const urls: string[] = [];
+  try {
+    const workspaces = await getWebhookWorkspacesFromFirestore();
+    workspaces.forEach((ws) => {
+      if (ws.active && ws.webhookUrl && ws.webhookUrl.startsWith("http")) {
+        const roleMatches =
+          !ws.targetRole || ws.targetRole === "ALL" || !appliedRole || ws.targetRole === appliedRole;
+        if (roleMatches && !urls.includes(ws.webhookUrl)) {
+          urls.push(ws.webhookUrl);
+        }
+      }
+    });
+  } catch (e) {
+    console.warn("Failed fetching workspaces for role routing:", e);
+  }
+
+  // Fallback to global config webhook if no workspaces configured or matched
+  if (urls.length === 0) {
+    try {
+      const globalSettings = await getSettingsFromFirestore();
+      if (globalSettings?.webhookUrl && globalSettings.webhookUrl.startsWith("http")) {
+        urls.push(globalSettings.webhookUrl);
+      }
+    } catch (e) {}
+  }
+
+  // Final fallback to process.env
+  if (urls.length === 0) {
+    const envUrl =
+      process.env.GOOGLE_SHEETS_WEBHOOK_URL || process.env.NEXT_PUBLIC_GOOGLE_SHEETS_WEBHOOK_URL;
+    if (envUrl && envUrl.startsWith("http")) {
+      urls.push(envUrl);
+    }
+  }
+
+  return urls;
 }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createCandidate } from "@/lib/data-store";
-import { dispatchToGoogleSheets } from "@/lib/webhook";
+import { dispatchToGoogleSheets, dispatchToAllMatchingWorkspaces } from "@/lib/webhook";
 
 export async function POST(req: NextRequest) {
   try {
@@ -82,11 +82,19 @@ export async function POST(req: NextRequest) {
       resumeUrl: resumeUrl.trim(),
     });
 
-    // Asynchronously dispatch to Google Sheets webhook if configured
+    // Asynchronously dispatch to Google Sheets webhook workspaces
     const webhookUrl = body.webhookUrl || undefined;
-    dispatchToGoogleSheets(candidate, webhookUrl).catch((err) =>
-      console.warn("Background webhook error:", err)
-    );
+    if (webhookUrl === "SKIP") {
+      // Recruiter explicitly opted out of syncing this candidate to Google Sheets
+    } else if (webhookUrl) {
+      dispatchToGoogleSheets(candidate, webhookUrl).catch((err) =>
+        console.warn("Background webhook error:", err)
+      );
+    } else {
+      dispatchToAllMatchingWorkspaces(candidate).catch((err) =>
+        console.warn("Background multi-workspace dispatch error:", err)
+      );
+    }
 
     return NextResponse.json({
       success: true,

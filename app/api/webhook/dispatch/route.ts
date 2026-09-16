@@ -16,19 +16,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const result = await dispatchToGoogleSheets(candidate, webhookUrl);
-
-    if (result.success) {
-      return NextResponse.json({
-        success: true,
-        message: result.message || "Candidate synced to Google Sheets.",
-      });
-    } else {
-      return NextResponse.json(
-        { success: false, error: result.error || "Failed to sync to Google Sheets." },
-        { status: 400 }
-      );
+    if (webhookUrl) {
+      const result = await dispatchToGoogleSheets(candidate, webhookUrl);
+      return NextResponse.json(result, { status: result.success ? 200 : 400 });
     }
+
+    const { dispatchToAllMatchingWorkspaces } = await import("@/lib/webhook");
+    const result = await dispatchToAllMatchingWorkspaces(candidate);
+    return NextResponse.json({
+      success: true,
+      totalDispatched: result.totalDispatched,
+      errors: result.errors,
+    });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("Webhook dispatch API error:", msg);

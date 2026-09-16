@@ -14,9 +14,11 @@ import {
   AlertCircle,
   Loader2,
   Check,
+  Workflow,
+  Info,
 } from "lucide-react";
 import { toast } from "sonner";
-import { CandidateItem } from "@/lib/types";
+import { CandidateItem, WebhookWorkspace, WEBHOOK_WORKSPACE_COLORS } from "@/lib/types";
 import { calculateSalaryBreakdown } from "@/lib/salary-utils";
 import { User } from "firebase/auth";
 
@@ -25,6 +27,7 @@ interface AddCandidateModalProps {
   onClose: () => void;
   onCandidateAdded: (newCandidate: CandidateItem) => void;
   currentUser?: User | null;
+  webhookWorkspaces?: WebhookWorkspace[];
 }
 
 const PRESET_ROLES = [
@@ -41,6 +44,7 @@ export default function AddCandidateModal({
   onClose,
   onCandidateAdded,
   currentUser,
+  webhookWorkspaces = [],
 }: AddCandidateModalProps) {
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
@@ -57,6 +61,7 @@ export default function AddCandidateModal({
   const [status, setStatus] = useState("Line-Up Scheduled");
   const [interviewDateTime, setInterviewDateTime] = useState("");
   const [recruiterNotes, setRecruiterNotes] = useState("");
+  const [targetWorkspaceId, setTargetWorkspaceId] = useState<string>("AUTO");
 
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -92,6 +97,19 @@ export default function AddCandidateModal({
     setLoading(true);
 
     try {
+      // Determine target webhook URL based on recruiter selection
+      let resolvedWebhookUrl: string | undefined = undefined;
+      if (targetWorkspaceId === "SKIP") {
+        resolvedWebhookUrl = "SKIP";
+      } else if (targetWorkspaceId !== "AUTO") {
+        const chosen = (webhookWorkspaces || []).find((w) => w.id === targetWorkspaceId);
+        if (chosen?.webhookUrl) {
+          resolvedWebhookUrl = chosen.webhookUrl;
+        } else {
+          resolvedWebhookUrl = "SKIP";
+        }
+      }
+
       const res = await fetch("/api/apply", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -106,6 +124,7 @@ export default function AddCandidateModal({
           currentCtc: currentCtc.trim() || null,
           expectedCtc: expectedCtc.trim() || null,
           resumeUrl: resumeUrl.trim() || "https://drive.google.com",
+          webhookUrl: resolvedWebhookUrl,
         }),
       });
 
@@ -152,7 +171,14 @@ export default function AddCandidateModal({
         }
       }
 
-      toast.success(`Candidate ${fullName} added to Line-Up & Calendar!`);
+      if (targetWorkspaceId === "SKIP") {
+        toast.success(`Candidate ${fullName} added! (Google Sheets sync skipped)`);
+      } else if (targetWorkspaceId !== "AUTO") {
+        const chosen = (webhookWorkspaces || []).find((w) => w.id === targetWorkspaceId);
+        toast.success(`Candidate ${fullName} added & dispatched to "${chosen?.name || "Selected Sheet"}"!`);
+      } else {
+        toast.success(`Candidate ${fullName} added to Line-Up & Calendar!`);
+      }
       onCandidateAdded(finalCandidate);
       onClose();
     } catch (err: unknown) {
@@ -163,6 +189,23 @@ export default function AddCandidateModal({
       setLoading(false);
     }
   };
+
+  const currentFinalRole = isCustomRole
+    ? customRole.trim() || "Operations Executive"
+    : appliedRole;
+
+  const activeMatchingWorkspaces = (webhookWorkspaces || []).filter(
+    (ws) =>
+      ws.active &&
+      (!ws.targetRole || ws.targetRole === "ALL" || ws.targetRole.toLowerCase() === currentFinalRole.toLowerCase())
+  );
+
+  const selectedWorkspace = (webhookWorkspaces || []).find(
+    (ws) => ws.id === targetWorkspaceId
+  );
+  const selectedWorkspaceColor = selectedWorkspace
+    ? WEBHOOK_WORKSPACE_COLORS.find((c) => c.id === selectedWorkspace.colorId)
+    : null;
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-ink/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fadeIn">
@@ -434,7 +477,106 @@ export default function AddCandidateModal({
             </div>
           </div>
 
-          {/* Section 4: Interview Date & Time on Calendar */}
+          {/* Section 4: Target Google Sheet Webhook Workspace */}
+          <div className="pt-2 border-t border-hairline">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[11px] font-semibold text-primary uppercase tracking-wider flex items-center gap-1.5">
+                <Workflow className="w-3.5 h-3.5 text-indigo-500" />
+                <span>4. Target Google Sheet Webhook</span>
+              </span>
+              {selectedWorkspace && (
+                <span
+                  className="text-[10px] font-semibold px-2 py-0.5 rounded-full text-white shadow-2xs flex items-center gap-1"
+                  style={{ backgroundColor: selectedWorkspaceColor?.hex || "#6366f1" }}
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                  <span>{selectedWorkspace.name}</span>
+                </span>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <label className="block text-xs font-medium text-ink-secondary">
+                Select Which Google Sheet / Webhook to Sync:
+              </label>
+
+              <select
+                value={targetWorkspaceId}
+                onChange={(e) => setTargetWorkspaceId(e.target.value)}
+                className="w-full text-base sm:text-sm px-3 py-2.5 sm:py-2 rounded-md border border-hairline-input focus:outline-none focus:border-primary bg-canvas text-ink font-medium"
+              >
+                <option value="AUTO">
+                  ⚡ Auto-Route by Role ({activeMatchingWorkspaces.length} active matching {activeMatchingWorkspaces.length === 1 ? "sheet" : "sheets"})
+                </option>
+                {webhookWorkspaces && webhookWorkspaces.length > 0 && (
+                  <optgroup label="Direct Webhook Workspaces">
+                    {webhookWorkspaces.map((ws) => (
+                      <option key={ws.id} value={ws.id}>
+                        {ws.active ? "🟢" : "⚪"} {ws.name} — ({ws.targetRole === "ALL" ? "All Roles" : ws.targetRole}) {!ws.webhookUrl ? "⚠️ [No URL set]" : ""}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                <option value="SKIP">🚫 Do Not Sync to Google Sheets (TalentFlow Only)</option>
+              </select>
+
+              {/* Dynamic feedback card */}
+              {targetWorkspaceId === "AUTO" ? (
+                <div className="p-2.5 rounded-lg bg-indigo-50/70 border border-indigo-200/80 text-[11px] text-indigo-950 flex items-start gap-2">
+                  <Info className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+                  <div className="space-y-0.5">
+                    <p className="font-semibold text-indigo-900">
+                      Auto-Routing to all active sheets configured for &quot;{currentFinalRole}&quot;:
+                    </p>
+                    <p className="text-indigo-800">
+                      {activeMatchingWorkspaces.length > 0 ? (
+                        <span>
+                          Candidate will be dispatched to:{" "}
+                          <strong>
+                            {activeMatchingWorkspaces.map((w) => w.name).join(", ")}
+                          </strong>
+                        </span>
+                      ) : (
+                        <span className="text-amber-700 font-medium">
+                          No active workspace currently targets &quot;{currentFinalRole}&quot;. Candidate will be safely saved in TalentFlow line-up.
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+              ) : targetWorkspaceId === "SKIP" ? (
+                <div className="p-2.5 rounded-lg bg-amber-50/80 border border-amber-200 text-[11px] text-amber-950 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>
+                    Candidate will be saved in TalentFlow database only. No Google Sheets webhook ping will be fired.
+                  </span>
+                </div>
+              ) : (
+                <div className="p-2.5 rounded-lg bg-canvas-soft border border-hairline text-[11px] text-ink flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="w-3 h-3 rounded-full shrink-0 shadow-2xs"
+                      style={{ backgroundColor: selectedWorkspaceColor?.hex || "#6366f1" }}
+                    />
+                    <span>
+                      Target Sheet: <strong>{selectedWorkspace?.name}</strong> ({selectedWorkspace?.targetRole === "ALL" ? "All Roles" : selectedWorkspace?.targetRole})
+                    </span>
+                  </div>
+                  {selectedWorkspace?.webhookUrl ? (
+                    <span className="text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                      Connected ✓
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                      ⚠️ No URL Configured
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Section 5: Interview Date & Time on Calendar */}
           <div className="pt-2 border-t border-hairline bg-primary/5 p-3 rounded-lg border border-primary/20">
             <div className="flex items-center gap-1.5 text-xs font-semibold text-primary mb-2">
               <Calendar className="w-4 h-4" />

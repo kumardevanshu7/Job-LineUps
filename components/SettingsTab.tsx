@@ -456,19 +456,27 @@ export default function SettingsTab({
           </div>
 
           {/* Quick Notice to prevent HTTP 403 */}
-          <div className="p-3 rounded-xl bg-purple-50/70 border border-purple-200/80 text-xs text-purple-950 flex items-start gap-2.5">
-            <Info className="w-4 h-4 text-purple-600 shrink-0 mt-0.5" />
-            <div className="text-[11px] space-y-1">
-              <p className="font-semibold text-purple-900">
+          <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-300 text-xs flex items-start gap-3 shadow-2xs">
+            <AlertCircle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+            <div className="text-[12px] space-y-1">
+              <p className="font-bold text-amber-950">
                 Crucial Deployment Step (Prevents Error 403 Forbidden):
               </p>
-              <p className="text-purple-850">
-                In Apps Script deployment settings, set <strong>&quot;Who has access&quot;</strong> to <strong>&quot;Anyone&quot;</strong>. If set to &quot;Only myself&quot;, Google blocks all incoming sync pings.
+              <p className="text-amber-900 font-medium leading-relaxed">
+                In Apps Script deployment settings, set{" "}
+                <strong className="font-bold text-amber-950 underline decoration-amber-500 underline-offset-2">
+                  &quot;Who has access&quot;
+                </strong>{" "}
+                to{" "}
+                <strong className="font-bold text-amber-950 underline decoration-amber-500 underline-offset-2">
+                  &quot;Anyone&quot;
+                </strong>
+                . If set to &quot;Only myself&quot;, Google blocks all incoming sync pings.
               </p>
               <button
                 type="button"
                 onClick={() => setIsWebhookGuideOpen(true)}
-                className="text-primary font-semibold hover:underline inline-flex items-center gap-1 mt-0.5"
+                className="text-primary font-semibold hover:underline inline-flex items-center gap-1 mt-1"
               >
                 <span>View 1-Click Code &amp; Step-by-Step Guide</span>
                 <ExternalLink className="w-3 h-3" />

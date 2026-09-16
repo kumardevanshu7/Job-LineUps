@@ -17,6 +17,7 @@ import CandidateDossierModal from "@/components/CandidateDossierModal";
 import SecurityPinModal from "@/components/SecurityPinModal";
 import SettingsTab from "@/components/SettingsTab";
 import ActivityLogsTab from "@/components/ActivityLogsTab";
+import WebhookWorkspacesTab from "@/components/WebhookWorkspacesTab";
 import {
   Search,
   RefreshCw,
@@ -37,6 +38,7 @@ import {
   Eye,
   Trash2,
   Activity,
+  Workflow,
 } from "lucide-react";
 import AddPartiesModal from "@/components/AddPartiesModal";
 import { toast } from "sonner";
@@ -47,6 +49,7 @@ import {
   ActivityLogItem,
   AppSettings,
   CollaboratorParty,
+  WebhookWorkspace,
 } from "@/lib/types";
 import { isToday, isTomorrow, isThisWeek, formatIndianDateTime } from "@/lib/date-utils";
 import {
@@ -66,6 +69,9 @@ import {
   subscribeToActivityLogsFromFirestore,
   getPartiesFromFirestore,
   subscribeToPartiesFromFirestore,
+  saveWebhookWorkspaceToFirestore,
+  deleteWebhookWorkspaceFromFirestore,
+  subscribeToWebhookWorkspacesFromFirestore,
 } from "@/lib/firebase";
 import { User } from "firebase/auth";
 
@@ -181,8 +187,11 @@ export default function RecruiterAdminPage() {
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState<"LINEUP" | "CALENDAR" | "LOGS" | "SETTINGS">("LINEUP");
+  const [activeTab, setActiveTab] = useState<"LINEUP" | "CALENDAR" | "LOGS" | "WEBHOOKS" | "SETTINGS">("LINEUP");
   const router = useRouter();
+
+  // Webhook Workspaces (Multi-Google-Sheet streams)
+  const [webhookWorkspaces, setWebhookWorkspaces] = useState<WebhookWorkspace[]>([]);
 
   // Modals & Profile
   const [recruiterProfile, setRecruiterProfile] = useState<RecruiterProfile | null>(null);
@@ -326,7 +335,12 @@ export default function RecruiterAdminPage() {
           }
         }, user.uid);
 
-        // 6. Prompt Onboarding if not completed
+        // 6. Real-time Google Sheet Webhook Workspaces (Cloud Firestore) - Scoped to user.uid
+        const unsubWebhooks = subscribeToWebhookWorkspacesFromFirestore((remoteWorkspaces) => {
+          setWebhookWorkspaces(remoteWorkspaces || []);
+        }, user.uid);
+
+        // 7. Prompt Onboarding if not completed
         if (!profileFound || !profileFound.completedOnboarding) {
           setIsOnboardingModalOpen(true);
         }
@@ -345,6 +359,7 @@ export default function RecruiterAdminPage() {
         setLogs([]);
         setParties([]);
         setActiveParty(null);
+        setWebhookWorkspaces([]);
       }
     });
     return () => unsubscribe();
@@ -363,6 +378,53 @@ export default function RecruiterAdminPage() {
     if (currentUser && typeof window !== "undefined") {
       localStorage.setItem(`app_settings_${currentUser.uid}`, JSON.stringify(newSettings));
       await saveSettingsToFirestore(newSettings, currentUser.uid);
+    }
+  };
+
+  const handleSaveWebhookWorkspace = async (workspace: WebhookWorkspace) => {
+    const wsWithUid: WebhookWorkspace = {
+      ...workspace,
+      recruiterUid: workspace.recruiterUid || currentUser?.uid || "admin",
+    };
+    setWebhookWorkspaces((prev) => {
+      const idx = prev.findIndex((w) => w.id === wsWithUid.id);
+      if (idx >= 0) {
+        const copy = [...prev];
+        copy[idx] = wsWithUid;
+        return copy;
+      }
+      return [wsWithUid, ...prev];
+    });
+
+    try {
+      await saveWebhookWorkspaceToFirestore(wsWithUid);
+      toast.success(`Workspace "${wsWithUid.name}" saved!`);
+      addLog(
+        "SETTINGS_UPDATED",
+        "Webhook Workspace",
+        `Saved Google Sheets webhook workspace "${wsWithUid.name}" (${wsWithUid.targetRole})`
+      );
+    } catch (e) {
+      console.warn("Error saving webhook workspace:", e);
+      toast.error("Failed to save workspace to cloud database");
+    }
+  };
+
+  const handleDeleteWebhookWorkspace = async (id: string) => {
+    const ws = webhookWorkspaces.find((w) => w.id === id);
+    setWebhookWorkspaces((prev) => prev.filter((w) => w.id !== id));
+
+    try {
+      await deleteWebhookWorkspaceFromFirestore(id);
+      toast.success(`Workspace "${ws?.name || id}" deleted`);
+      addLog(
+        "SETTINGS_UPDATED",
+        "Webhook Workspace",
+        `Deleted webhook workspace "${ws?.name || id}"`
+      );
+    } catch (e) {
+      console.warn("Error deleting webhook workspace:", e);
+      toast.error("Failed to delete workspace from cloud database");
     }
   };
 
@@ -860,7 +922,7 @@ export default function RecruiterAdminPage() {
   };
 
   // Candidate added: Completely FRICTIONLESS (No Password required)
-  const handleCandidateAdded = (newCand: CandidateItem) => {
+  const handleCandidateAdded = (newCand: CandidateItem, skipWebhook = true) => {
     const candidateWithRecruiter: CandidateItem = {
       ...newCand,
       recruiterId: newCand.recruiterId || currentUser?.uid || "unassigned",
@@ -882,16 +944,26 @@ export default function RecruiterAdminPage() {
       }
     );
 
-    // Sync candidate to Google Sheets Webhook if configured
-    if (settings.webhookUrl) {
+    // If not already dispatched by /api/apply
+    if (!skipWebhook) {
       fetch("/api/webhook/dispatch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           candidate: candidateWithRecruiter,
-          webhookUrl: settings.webhookUrl,
         }),
-      }).catch((e) => console.warn("Background webhook sync error:", e));
+      }).catch((e) => console.warn("Background webhook workspaces dispatch error:", e));
+
+      if (settings.webhookUrl) {
+        fetch("/api/webhook/dispatch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            candidate: candidateWithRecruiter,
+            webhookUrl: settings.webhookUrl,
+          }),
+        }).catch((e) => console.warn("Background legacy webhook sync error:", e));
+      }
     }
 
     fetchCandidates();
@@ -1068,6 +1140,16 @@ export default function RecruiterAdminPage() {
           >
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
             <span>Logs</span>
+          </button>
+          <button
+            onClick={() => setActiveTab("WEBHOOKS")}
+            className={`flex-1 py-1.5 px-2 text-xs font-medium rounded-lg whitespace-nowrap transition-all ${
+              activeTab === "WEBHOOKS"
+                ? "bg-brand-dark text-white shadow-sm"
+                : "text-ink-secondary"
+            }`}
+          >
+            Webhooks
           </button>
           <button
             onClick={() => setActiveTab("SETTINGS")}
@@ -1600,6 +1682,17 @@ export default function RecruiterAdminPage() {
           />
         )}
 
+        {/* Active Tab: GOOGLE SHEET WEBHOOK WORKSPACES */}
+        {activeTab === "WEBHOOKS" && (
+          <WebhookWorkspacesTab
+            workspaces={webhookWorkspaces}
+            onSaveWorkspace={handleSaveWebhookWorkspace}
+            onDeleteWorkspace={handleDeleteWebhookWorkspace}
+            availableRoles={Array.from(new Set(candidates.map((c) => c.appliedRole).filter(Boolean)))}
+            currentRecruiterUid={currentUser?.uid}
+          />
+        )}
+
         {/* Active Tab: SETTINGS & DATABASE BACKUP */}
         {activeTab === "SETTINGS" && (
           <SettingsTab
@@ -1665,6 +1758,7 @@ export default function RecruiterAdminPage() {
         onClose={() => setIsAddModalOpen(false)}
         onCandidateAdded={handleCandidateAdded}
         currentUser={currentUser}
+        webhookWorkspaces={webhookWorkspaces}
       />
 
       {/* Manager Export Modal */}

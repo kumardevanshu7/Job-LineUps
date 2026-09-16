@@ -7,11 +7,12 @@ import {
   Plus,
   Activity,
   Settings,
+  Workflow,
 } from "lucide-react";
 
 interface MobileBottomNavProps {
-  activeTab: "LINEUP" | "CALENDAR" | "LOGS" | "SETTINGS";
-  onTabChange: (tab: "LINEUP" | "CALENDAR" | "LOGS" | "SETTINGS") => void;
+  activeTab: "LINEUP" | "CALENDAR" | "LOGS" | "WEBHOOKS" | "SETTINGS";
+  onTabChange: (tab: "LINEUP" | "CALENDAR" | "LOGS" | "WEBHOOKS" | "SETTINGS") => void;
   onOpenAddModal: () => void;
 }
 
@@ -26,66 +27,63 @@ export default function MobileBottomNav({
         {/* Line-Up Tab */}
         <button
           onClick={() => onTabChange("LINEUP")}
-          className={`flex flex-col items-center justify-center min-w-[56px] min-h-[44px] py-1 px-1.5 rounded-xl transition-all active:scale-95 ${
+          className={`flex flex-col items-center justify-center min-w-[48px] min-h-[44px] py-1 px-1 rounded-xl transition-all active:scale-95 ${
             activeTab === "LINEUP"
               ? "text-primary font-bold bg-primary/10"
               : "text-ink-mute hover:text-ink"
           }`}
         >
-          <ListFilter className="w-5 h-5 mb-0.5" />
-          <span className="text-[10px] leading-tight">Line-Up</span>
+          <ListFilter className="w-4 h-4 mb-0.5" />
+          <span className="text-[9px] leading-tight">Line-Up</span>
         </button>
 
         {/* Calendar Tab */}
         <button
           onClick={() => onTabChange("CALENDAR")}
-          className={`flex flex-col items-center justify-center min-w-[56px] min-h-[44px] py-1 px-1.5 rounded-xl transition-all active:scale-95 ${
+          className={`flex flex-col items-center justify-center min-w-[48px] min-h-[44px] py-1 px-1 rounded-xl transition-all active:scale-95 ${
             activeTab === "CALENDAR"
               ? "text-primary font-bold bg-primary/10"
               : "text-ink-mute hover:text-ink"
           }`}
         >
-          <CalendarIcon className="w-5 h-5 mb-0.5" />
-          <span className="text-[10px] leading-tight">Calendar</span>
+          <CalendarIcon className="w-4 h-4 mb-0.5" />
+          <span className="text-[9px] leading-tight">Calendar</span>
         </button>
 
         {/* Center Floating + Add Candidate Button */}
         <button
           onClick={onOpenAddModal}
-          className="flex items-center justify-center -mt-5 bg-primary text-white w-12 h-12 rounded-full shadow-lg hover:bg-primary-deep transition-transform active:scale-90 ring-4 ring-white shrink-0"
+          className="flex items-center justify-center -mt-4 bg-primary text-white w-11 h-11 rounded-full shadow-lg hover:bg-primary-deep transition-transform active:scale-90 ring-4 ring-white shrink-0"
           title="Add Candidate Line-Up"
           aria-label="Add Candidate"
         >
-          <Plus className="w-6 h-6 stroke-[2.5]" />
+          <Plus className="w-5 h-5 stroke-[2.5]" />
         </button>
 
-        {/* Logs Tab with Glowing Pulse Dot */}
+        {/* Webhooks Tab */}
         <button
-          onClick={() => onTabChange("LOGS")}
-          className={`flex flex-col items-center justify-center min-w-[56px] min-h-[44px] py-1 px-1.5 rounded-xl transition-all active:scale-95 relative ${
-            activeTab === "LOGS"
+          onClick={() => onTabChange("WEBHOOKS")}
+          className={`flex flex-col items-center justify-center min-w-[48px] min-h-[44px] py-1 px-1 rounded-xl transition-all active:scale-95 ${
+            activeTab === "WEBHOOKS"
               ? "text-primary font-bold bg-primary/10"
               : "text-ink-mute hover:text-ink"
           }`}
         >
-          <div className="relative">
-            <Activity className="w-5 h-5 mb-0.5" />
-            <span className="absolute -top-0.5 -right-1 w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.9)] animate-pulse" />
-          </div>
-          <span className="text-[10px] leading-tight">Logs</span>
+          <Workflow className="w-4 h-4 mb-0.5" />
+          <span className="text-[9px] leading-tight">Webhooks</span>
         </button>
 
         {/* Settings Tab */}
         <button
           onClick={() => onTabChange("SETTINGS")}
-          className={`flex flex-col items-center justify-center min-w-[56px] min-h-[44px] py-1 px-1.5 rounded-xl transition-all active:scale-95 ${
+          className={`flex flex-col items-center justify-center min-w-[48px] min-h-[44px] py-1 px-1 rounded-xl transition-all active:scale-95 ${
             activeTab === "SETTINGS"
               ? "text-primary font-bold bg-primary/10"
               : "text-ink-mute hover:text-ink"
           }`}
         >
-          <Settings className="w-5 h-5 mb-0.5" />
-          <span className="text-[10px] leading-tight">Settings</span>
+          <Settings className="w-4 h-4 mb-0.5" />
+          <span className="text-[9px] leading-tight">Settings</span>
         </button>
       </div>
     </div>

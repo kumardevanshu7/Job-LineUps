@@ -1,5 +1,5 @@
 import { CandidateItem } from "./types";
-import { getSettingsFromFirestore } from "./firebase";
+import { getSettingsFromFirestore, getAllActiveWebhooksForRole } from "./firebase";
 
 export const GOOGLE_APPS_SCRIPT_TEMPLATE = `// ===============================================================
 // TalentFlow Google Sheets Live Sync & Auto-Styling Webhook
@@ -245,4 +245,30 @@ export async function dispatchToGoogleSheets(
       error: errorMessage,
     };
   }
+}
+
+// Dispatches candidate to all active Webhook Workspaces matching candidate's role
+export async function dispatchToAllMatchingWorkspaces(
+  candidate: CandidateItem
+): Promise<{ totalDispatched: number; errors: string[] }> {
+  const urls = await getAllActiveWebhooksForRole(candidate.appliedRole);
+  let totalDispatched = 0;
+  const errors: string[] = [];
+
+  if (urls.length === 0) {
+    return { totalDispatched: 0, errors: ["No active webhook workspaces found"] };
+  }
+
+  await Promise.allSettled(
+    urls.map(async (url) => {
+      const res = await dispatchToGoogleSheets(candidate, url);
+      if (res.success) {
+        totalDispatched++;
+      } else if (res.error) {
+        errors.push(res.error);
+      }
+    })
+  );
+
+  return { totalDispatched, errors };
 }

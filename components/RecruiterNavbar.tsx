@@ -11,6 +11,7 @@ import {
   Settings,
   Users,
   Calendar,
+  Workflow,
 } from "lucide-react";
 import { User } from "firebase/auth";
 import { RecruiterProfile } from "@/lib/types";
@@ -22,8 +23,8 @@ interface RecruiterNavbarProps {
   onOpenExportModal: () => void;
   onOpenPartiesModal?: () => void;
   partiesCount?: number;
-  activeTab: "LINEUP" | "CALENDAR" | "LOGS" | "SETTINGS";
-  onTabChange: (tab: "LINEUP" | "CALENDAR" | "LOGS" | "SETTINGS") => void;
+  activeTab: "LINEUP" | "CALENDAR" | "LOGS" | "WEBHOOKS" | "SETTINGS";
+  onTabChange: (tab: "LINEUP" | "CALENDAR" | "LOGS" | "WEBHOOKS" | "SETTINGS") => void;
   currentUser?: User | null;
   recruiterProfile?: RecruiterProfile | null;
   onOpenProfileModal?: () => void;
@@ -243,7 +244,21 @@ export default function RecruiterNavbar({
               <span>Activity Logs</span>
             </button>
 
-            {/* Tab 4: Settings & Security Controls */}
+            {/* Tab 4: Google Sheets & Webhooks */}
+            <button
+              onClick={() => onTabChange("WEBHOOKS")}
+              className={`px-3.5 py-1.5 rounded-lg transition-all flex items-center gap-2 shrink-0 ${
+                activeTab === "WEBHOOKS"
+                  ? "bg-brand-dark text-white font-semibold shadow-xs"
+                  : "text-ink-secondary hover:text-ink hover:bg-canvas-soft"
+              }`}
+              title="Google Sheet Webhook Workspaces"
+            >
+              <Workflow className="w-3.5 h-3.5 text-indigo-400" />
+              <span>Webhooks</span>
+            </button>
+
+            {/* Tab 5: Settings & Security Controls */}
             <button
               onClick={() => onTabChange("SETTINGS")}
               className={`px-3.5 py-1.5 rounded-lg transition-all flex items-center gap-2 shrink-0 ${
