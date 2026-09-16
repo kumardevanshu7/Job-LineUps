@@ -21,6 +21,7 @@ export type CandidateStatus =
 
 export interface CandidateItem {
   id: string;
+  recruiterId?: string; // owner UID for multi-tenant isolation
   fullName: string;
   phone: string;
   email: string;
@@ -87,6 +88,7 @@ export interface PartyPermissions {
 
 export interface CollaboratorParty {
   id: string;
+  ownerUid?: string; // owner recruiter UID
   name: string;
   email: string;
   role: string; // e.g., "Interviewer", "Hiring Manager", "HR Coordinator", "Lead Recruiter"
@@ -99,6 +101,7 @@ export interface CollaboratorParty {
 
 export interface ActivityLogItem {
   id: string;
+  recruiterUid?: string; // owner recruiter UID
   action:
     | "STATUS_CHANGE"
     | "RESCHEDULE"

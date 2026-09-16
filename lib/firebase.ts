@@ -99,11 +99,12 @@ export function onRecruiterAuthStateChanged(
 }
 
 // Firestore Sync: Save candidate to Cloud Firestore
-export async function syncCandidateToFirestore(candidate: CandidateItem) {
+export async function syncCandidateToFirestore(candidate: CandidateItem, recruiterId?: string) {
   try {
     const docRef = doc(db, "candidates", candidate.id);
     await setDoc(docRef, {
       ...candidate,
+      recruiterId: candidate.recruiterId || recruiterId || "unassigned",
       syncedAt: new Date().toISOString(),
     });
   } catch (err) {
@@ -144,15 +145,18 @@ export async function getCandidateFromFirestore(
   }
 }
 
-// Firestore Sync: Get all candidates from Cloud Firestore
-export async function getCandidatesFromFirestore(): Promise<CandidateItem[]> {
+// Firestore Sync: Get candidates from Cloud Firestore (scoped to recruiterId if provided)
+export async function getCandidatesFromFirestore(recruiterId?: string): Promise<CandidateItem[]> {
   try {
     const coll = collection(db, "candidates");
     const q = query(coll, orderBy("createdAt", "desc"));
     const snap = await getDocs(q);
     const list: CandidateItem[] = [];
     snap.forEach((d) => {
-      list.push(d.data() as CandidateItem);
+      const data = d.data() as CandidateItem;
+      if (!recruiterId || data.recruiterId === recruiterId) {
+        list.push(data);
+      }
     });
     return list;
   } catch (err) {
@@ -161,9 +165,10 @@ export async function getCandidatesFromFirestore(): Promise<CandidateItem[]> {
   }
 }
 
-// Firestore Sync: Real-time listener for candidates collection
+// Firestore Sync: Real-time listener for candidates collection (scoped to recruiterId if provided)
 export function subscribeToCandidatesFromFirestore(
-  callback: (candidates: CandidateItem[]) => void
+  callback: (candidates: CandidateItem[]) => void,
+  recruiterId?: string
 ) {
   try {
     const coll = collection(db, "candidates");
@@ -173,7 +178,10 @@ export function subscribeToCandidatesFromFirestore(
       (snapshot) => {
         const list: CandidateItem[] = [];
         snapshot.forEach((d) => {
-          list.push(d.data() as CandidateItem);
+          const data = d.data() as CandidateItem;
+          if (!recruiterId || data.recruiterId === recruiterId) {
+            list.push(data);
+          }
         });
         callback(list);
       },
@@ -228,24 +236,30 @@ export async function deleteCandidateFromFirestore(candidateId: string) {
 }
 
 // Firestore Sync: Save activity log entry
-export async function saveActivityLogToFirestore(logItem: ActivityLogItem) {
+export async function saveActivityLogToFirestore(logItem: ActivityLogItem, recruiterUid?: string) {
   try {
     const docRef = doc(db, "activity_logs", logItem.id);
-    await setDoc(docRef, logItem);
+    await setDoc(docRef, {
+      ...logItem,
+      recruiterUid: logItem.recruiterUid || recruiterUid || "system",
+    });
   } catch (err) {
     console.warn("Firestore activity log save error:", err);
   }
 }
 
-// Firestore Sync: Get recent activity logs
-export async function getActivityLogsFromFirestore(): Promise<ActivityLogItem[]> {
+// Firestore Sync: Get recent activity logs (scoped to recruiterUid if provided)
+export async function getActivityLogsFromFirestore(recruiterUid?: string): Promise<ActivityLogItem[]> {
   try {
     const logsRef = collection(db, "activity_logs");
     const q = query(logsRef, orderBy("timestamp", "desc"), limit(50));
     const snap = await getDocs(q);
     const logs: ActivityLogItem[] = [];
     snap.forEach((d) => {
-      logs.push(d.data() as ActivityLogItem);
+      const data = d.data() as ActivityLogItem;
+      if (!recruiterUid || data.recruiterUid === recruiterUid) {
+        logs.push(data);
+      }
     });
     return logs;
   } catch (err) {
@@ -254,9 +268,10 @@ export async function getActivityLogsFromFirestore(): Promise<ActivityLogItem[]>
   }
 }
 
-// Firestore Sync: Real-time listener for activity logs
+// Firestore Sync: Real-time listener for activity logs (scoped to recruiterUid if provided)
 export function subscribeToActivityLogsFromFirestore(
-  callback: (logs: ActivityLogItem[]) => void
+  callback: (logs: ActivityLogItem[]) => void,
+  recruiterUid?: string
 ) {
   try {
     const logsRef = collection(db, "activity_logs");
@@ -266,7 +281,10 @@ export function subscribeToActivityLogsFromFirestore(
       (snapshot) => {
         const logs: ActivityLogItem[] = [];
         snapshot.forEach((d) => {
-          logs.push(d.data() as ActivityLogItem);
+          const data = d.data() as ActivityLogItem;
+          if (!recruiterUid || data.recruiterUid === recruiterUid) {
+            logs.push(data);
+          }
         });
         callback(logs);
       },
@@ -280,10 +298,11 @@ export function subscribeToActivityLogsFromFirestore(
   }
 }
 
-// Firestore Sync: Save app settings (e.g. security PIN)
-export async function saveSettingsToFirestore(settings: AppSettings) {
+// Firestore Sync: Save app settings (e.g. security PIN, scoped to user uid)
+export async function saveSettingsToFirestore(settings: AppSettings, uid?: string) {
   try {
-    const docRef = doc(db, "settings", "global_config");
+    const docId = uid ? `user_${uid}` : "global_config";
+    const docRef = doc(db, "settings", docId);
     await setDoc(docRef, {
       ...settings,
       updatedAt: new Date().toISOString(),
@@ -293,10 +312,11 @@ export async function saveSettingsToFirestore(settings: AppSettings) {
   }
 }
 
-// Firestore Sync: Get app settings
-export async function getSettingsFromFirestore(): Promise<AppSettings | null> {
+// Firestore Sync: Get app settings (scoped to user uid)
+export async function getSettingsFromFirestore(uid?: string): Promise<AppSettings | null> {
   try {
-    const docRef = doc(db, "settings", "global_config");
+    const docId = uid ? `user_${uid}` : "global_config";
+    const docRef = doc(db, "settings", docId);
     const snap = await getDoc(docRef);
     if (snap.exists()) {
       return snap.data() as AppSettings;
@@ -313,11 +333,12 @@ export async function getSettingsFromFirestore(): Promise<AppSettings | null> {
 // ==========================================
 
 // Firestore Sync: Save / update party member
-export async function savePartyToFirestore(party: CollaboratorParty) {
+export async function savePartyToFirestore(party: CollaboratorParty, ownerUid?: string) {
   try {
     const docRef = doc(db, "parties", party.id);
     await setDoc(docRef, {
       ...party,
+      ownerUid: party.ownerUid || ownerUid || "unassigned",
       updatedAt: new Date().toISOString(),
     });
   } catch (err) {
@@ -335,15 +356,18 @@ export async function deletePartyFromFirestore(partyId: string) {
   }
 }
 
-// Firestore Sync: Get all parties
-export async function getPartiesFromFirestore(): Promise<CollaboratorParty[]> {
+// Firestore Sync: Get parties (scoped to ownerUid if provided)
+export async function getPartiesFromFirestore(ownerUid?: string): Promise<CollaboratorParty[]> {
   try {
     const partiesRef = collection(db, "parties");
     const q = query(partiesRef, orderBy("createdAt", "desc"));
     const snap = await getDocs(q);
     const parties: CollaboratorParty[] = [];
     snap.forEach((d) => {
-      parties.push(d.data() as CollaboratorParty);
+      const data = d.data() as CollaboratorParty;
+      if (!ownerUid || data.ownerUid === ownerUid) {
+        parties.push(data);
+      }
     });
     return parties;
   } catch (err) {
@@ -352,9 +376,10 @@ export async function getPartiesFromFirestore(): Promise<CollaboratorParty[]> {
   }
 }
 
-// Firestore Sync: Real-time listener for collaborator parties
+// Firestore Sync: Real-time listener for collaborator parties (scoped to ownerUid if provided)
 export function subscribeToPartiesFromFirestore(
-  callback: (parties: CollaboratorParty[]) => void
+  callback: (parties: CollaboratorParty[]) => void,
+  ownerUid?: string
 ) {
   try {
     const partiesRef = collection(db, "parties");
@@ -364,7 +389,10 @@ export function subscribeToPartiesFromFirestore(
       (snapshot) => {
         const parties: CollaboratorParty[] = [];
         snapshot.forEach((d) => {
-          parties.push(d.data() as CollaboratorParty);
+          const data = d.data() as CollaboratorParty;
+          if (!ownerUid || data.ownerUid === ownerUid) {
+            parties.push(data);
+          }
         });
         callback(parties);
       },

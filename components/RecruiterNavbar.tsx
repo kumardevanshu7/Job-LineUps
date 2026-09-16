@@ -7,7 +7,6 @@ import {
   Plus,
   FileSpreadsheet,
   LogOut,
-  ArrowLeft,
   Activity,
   Settings,
   Users,
@@ -52,19 +51,15 @@ export default function RecruiterNavbar({
       {/* ========================================================================= */}
       <div className="w-full backdrop-blur-md bg-white/95 border-b border-hairline/80">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-3">
-          {/* Left: Back to Home + Brand Logo (favicon) + TalentFlow wordmark */}
+          {/* Left: Brand Logo (high-res favicon) + TalentFlow wordmark */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <Link
-              href="/"
-              className="p-1.5 rounded-lg text-ink-mute hover:text-ink hover:bg-canvas-soft border border-hairline transition-colors"
-              title="Back to Landing Page"
+              href="/admin"
+              className="flex items-center gap-2 group focus:outline-none"
+              title="TalentFlow Recruiter Command"
             >
-              <ArrowLeft className="w-4 h-4" />
-            </Link>
-
-            <div className="flex items-center gap-2">
               {/* Always show the favicon/brand logo here */}
-              <BrandLogo size="sm" className="w-8 h-8 rounded-lg shadow-2xs shrink-0" />
+              <BrandLogo size="sm" className="w-8 h-8 rounded-lg shadow-2xs shrink-0 group-hover:scale-105 transition-transform" />
               <div className="flex flex-col">
                 <span className="text-[17px] sm:text-[19px] font-bold tracking-tight text-ink leading-tight">
                   Talent<span className="text-primary font-medium">Flow</span>
@@ -73,7 +68,7 @@ export default function RecruiterNavbar({
                   Recruiter Command
                 </span>
               </div>
-            </div>
+            </Link>
           </div>
 
           {/* Right: Actions */}

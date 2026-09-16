@@ -18,11 +18,13 @@ import {
 import { toast } from "sonner";
 import { CandidateItem } from "@/lib/types";
 import { calculateSalaryBreakdown } from "@/lib/salary-utils";
+import { User } from "firebase/auth";
 
 interface AddCandidateModalProps {
   isOpen: boolean;
   onClose: () => void;
   onCandidateAdded: (newCandidate: CandidateItem) => void;
+  currentUser?: User | null;
 }
 
 const PRESET_ROLES = [
@@ -38,6 +40,7 @@ export default function AddCandidateModal({
   isOpen,
   onClose,
   onCandidateAdded,
+  currentUser,
 }: AddCandidateModalProps) {
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
@@ -116,6 +119,7 @@ export default function AddCandidateModal({
       // Update with scheduled interview date and notes if provided
       let finalCandidate: CandidateItem = {
         id: candidateId,
+        recruiterId: currentUser?.uid || "unassigned",
         fullName: fullName.trim(),
         phone: cleanPhone,
         email: email.trim(),
