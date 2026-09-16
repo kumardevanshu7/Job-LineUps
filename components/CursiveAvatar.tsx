@@ -53,10 +53,13 @@ export default function CursiveAvatar({
       title={title}
       className={`rounded-full flex items-center justify-center font-cursive font-bold leading-none select-none transition-transform ${
         sizeMeta.container
-      } ${sizeMeta.borderWidth} ${sizeMeta.shadow} ${color.bg} ${color.text} ${
-        color.border
-      } ${onClick ? "cursor-pointer hover:scale-105 active:scale-95" : ""} ${className}`}
+      } ${sizeMeta.borderWidth} ${sizeMeta.shadow} ${
+        onClick ? "cursor-pointer hover:scale-105 active:scale-95" : ""
+      } ${className}`}
       style={{
+        backgroundColor: color.hexBg,
+        borderColor: color.hexBorder,
+        color: color.hexText,
         // Micro-adjustment for cursive font baseline
         paddingBottom: size === "xl" ? "4px" : size === "lg" ? "2px" : "1px",
       }}

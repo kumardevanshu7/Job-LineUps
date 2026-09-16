@@ -223,30 +223,24 @@ export default function SettingsTab({
           </div>
 
           <form onSubmit={handleSavePin} className="space-y-3 pt-1">
-            <div>
-              <label className="text-xs font-medium text-ink block mb-1">
-                Active Security PIN:
-              </label>
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-hairline bg-canvas-soft">
-                  <span className="font-mono text-xs font-bold text-ink tracking-widest">
-                    {showPin ? currentPin : "••••"}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setShowPin(!showPin)}
-                    className="text-ink-mute hover:text-ink transition-colors focus:outline-none p-0.5"
-                    title={showPin ? "Hide Security PIN" : "Reveal Security PIN"}
-                  >
-                    {showPin ? (
-                      <EyeOff className="w-3.5 h-3.5" />
-                    ) : (
-                      <Eye className="w-3.5 h-3.5" />
-                    )}
-                  </button>
+            {/* PIN Protection Status Indicator */}
+            <div className="flex items-center justify-between p-2.5 rounded-xl bg-canvas-soft border border-hairline">
+              <div className="flex items-center gap-2.5">
+                <div className="w-6 h-6 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 shrink-0">
+                  <Shield className="w-3.5 h-3.5" />
                 </div>
-                <span className="text-[11px] text-ink-mute">(Default: 1234)</span>
+                <div>
+                  <span className="text-xs font-semibold text-ink block">
+                    Security Passkey Protected
+                  </span>
+                  <span className="text-[10px] text-ink-mute block">
+                    4-digit security PIN is active and safeguarding status changes & deletions
+                  </span>
+                </div>
               </div>
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
+                Active
+              </span>
             </div>
 
             <div className="grid grid-cols-2 gap-3">

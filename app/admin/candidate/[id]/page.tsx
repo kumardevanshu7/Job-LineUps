@@ -354,21 +354,33 @@ export default function CandidateDetailPage() {
       // 2. Update Firestore
       await updateCandidateInFirestore(candidate.id, updatedRecord);
 
-      // 3. Add Audit Log
+      // 3. Add Audit Log with Editor Email and Field Comparison
       const auditLog: ActivityLogItem = {
         id: `log-${Date.now()}`,
         timestamp: new Date().toISOString(),
         recruiterName: recruiterProfile?.name || currentUser?.displayName || "Recruiter",
+        recruiterEmail: currentUser?.email || "admin@talentflow.in",
+        fieldChanged: isDateChanged
+          ? "Interview Schedule Slot"
+          : status !== candidate.status
+          ? "Pipeline Status"
+          : "Candidate Notes & Profile",
         action: isDateChanged ? "RESCHEDULE" : status !== candidate.status ? "STATUS_CHANGE" : "NOTES_UPDATED",
         candidateName: fullName,
         candidateId: candidate.id,
         details: isDateChanged
           ? `Interview rescheduled (${nextRescheduleCount}x): ${rescheduleReason || "Slot revised"}`
           : status !== candidate.status
-          ? `Status updated to ${status}`
+          ? `Status updated from ${candidate.status} to ${status}`
           : "Candidate dossier details updated",
-        previousValue: candidate.status,
-        newValue: status,
+        previousValue: isDateChanged
+          ? candidate.interviewDate
+            ? `${formatIndianDateTime(candidate.interviewDate).dateStr} ${formatIndianDateTime(candidate.interviewDate).timeStr}`
+            : "Not Scheduled"
+          : candidate.status,
+        newValue: isDateChanged
+          ? `${formatIndianDateTime(interviewDateTime).dateStr} ${formatIndianDateTime(interviewDateTime).timeStr} (Reason: ${rescheduleReason || "Slot revised"})`
+          : status,
         glowColor: isDateChanged ? "amber" : status === "Selected" ? "emerald" : status === "Rejected" ? "rose" : "blue",
       };
       saveActivityLogToFirestore(auditLog).catch(() => {});

@@ -38,6 +38,7 @@ import {
   Trash2,
   Activity,
 } from "lucide-react";
+import AddPartiesModal from "@/components/AddPartiesModal";
 import { toast } from "sonner";
 import {
   CandidateItem,
@@ -45,6 +46,7 @@ import {
   RecruiterProfile,
   ActivityLogItem,
   AppSettings,
+  CollaboratorParty,
 } from "@/lib/types";
 import { isToday, isTomorrow, isThisWeek, formatIndianDateTime } from "@/lib/date-utils";
 import {
@@ -59,6 +61,11 @@ import {
   getActivityLogsFromFirestore,
   saveSettingsToFirestore,
   getSettingsFromFirestore,
+  getCandidatesFromFirestore,
+  subscribeToCandidatesFromFirestore,
+  subscribeToActivityLogsFromFirestore,
+  getPartiesFromFirestore,
+  subscribeToPartiesFromFirestore,
 } from "@/lib/firebase";
 import { User } from "firebase/auth";
 
@@ -182,6 +189,11 @@ export default function RecruiterAdminPage() {
   const [isOnboardingModalOpen, setIsOnboardingModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [isAddPartiesModalOpen, setIsAddPartiesModalOpen] = useState(false);
+
+  // Collaborator Parties State
+  const [parties, setParties] = useState<CollaboratorParty[]>([]);
+  const [activeParty, setActiveParty] = useState<CollaboratorParty | null>(null);
 
   // PIN Protection State
   const [settings, setSettings] = useState<AppSettings>({
@@ -258,7 +270,32 @@ export default function RecruiterAdminPage() {
           }
         }).catch((e) => console.warn("Error fetching remote settings:", e));
 
-        // 3. Activity Logs
+        // 3. Real-time Collaborator Parties (Cloud Firestore)
+        getPartiesFromFirestore().then((initialParties) => {
+          if (initialParties) setParties(initialParties);
+        }).catch(() => {});
+        const unsubParties = subscribeToPartiesFromFirestore((remoteParties) => {
+          setParties(remoteParties);
+        });
+
+        // 4. Real-time Candidates Sync (Zero Local DB Dependency)
+        const unsubCandidates = subscribeToCandidatesFromFirestore((remoteCandidates) => {
+          if (remoteCandidates && remoteCandidates.length > 0) {
+            setCandidates(remoteCandidates);
+            setStats({
+              total: remoteCandidates.length,
+              newApplied: remoteCandidates.filter((c) => c.status === "New Applied").length,
+              shortlisted: remoteCandidates.filter((c) => c.status === "Screening Shortlisted").length,
+              scheduled: remoteCandidates.filter((c) => c.status === "Line-Up Scheduled").length,
+              interviewDone: remoteCandidates.filter((c) => c.status === "Interview Done").length,
+              selected: remoteCandidates.filter((c) => c.status === "Selected").length,
+              rejected: remoteCandidates.filter((c) => c.status === "Rejected").length,
+            });
+            setLoading(false);
+          }
+        });
+
+        // 5. Real-time Activity Logs (Cloud Firestore)
         const localLogsKey = `activity_logs_${user.uid}`;
         const cachedLogs = typeof window !== "undefined" ? localStorage.getItem(localLogsKey) : null;
         if (cachedLogs) {
@@ -266,22 +303,24 @@ export default function RecruiterAdminPage() {
             setLogs(JSON.parse(cachedLogs));
           } catch (e) {}
         }
-        getActivityLogsFromFirestore().then((remoteLogs) => {
+        const unsubLogs = subscribeToActivityLogsFromFirestore((remoteLogs) => {
           if (remoteLogs && remoteLogs.length > 0) {
             setLogs(remoteLogs);
             if (typeof window !== "undefined") {
               localStorage.setItem(localLogsKey, JSON.stringify(remoteLogs));
             }
           }
-        }).catch((e) => console.warn("Error fetching remote logs:", e));
+        });
 
-        // 4. Prompt Onboarding if not completed
+        // 6. Prompt Onboarding if not completed
         if (!profileFound || !profileFound.completedOnboarding) {
           setIsOnboardingModalOpen(true);
         }
       } else {
         setRecruiterProfile(null);
         setLogs([]);
+        setParties([]);
+        setActiveParty(null);
       }
     });
     return () => unsubscribe();
@@ -310,9 +349,14 @@ export default function RecruiterAdminPage() {
     extra?: {
       candidateId?: string;
       role?: string;
+      fieldChanged?: string;
+      previousValue?: string;
+      newValue?: string;
       oldStage?: string;
       newStage?: string;
       glowColor?: "emerald" | "blue" | "purple" | "indigo" | "cyan" | "rose" | "amber";
+      recruiterName?: string;
+      recruiterEmail?: string;
     }
   ) => {
     let color: "emerald" | "blue" | "purple" | "indigo" | "cyan" | "rose" | "amber" = extra?.glowColor || "blue";
@@ -323,18 +367,38 @@ export default function RecruiterAdminPage() {
       else if (extra?.newStage === "Screening Shortlisted") color = "purple";
       else if (extra?.newStage === "Interview Done") color = "cyan";
       else if (action === "RESCHEDULE") color = "amber";
+      else if (action === "PARTY_ADDED") color = "emerald";
+      else if (action === "PARTY_REMOVED") color = "rose";
+      else if (action === "PERMISSIONS_UPDATED") color = "indigo";
     }
+
+    const currentUserName =
+      extra?.recruiterName ||
+      activeParty?.name ||
+      recruiterProfile?.name ||
+      currentUser?.displayName ||
+      "Admin Recruiter";
+
+    const currentUserEmail =
+      extra?.recruiterEmail ||
+      activeParty?.email ||
+      currentUser?.email ||
+      "admin@talentflow.in";
 
     const newLog: ActivityLogItem = {
       id: `log-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       timestamp: new Date().toISOString(),
-      recruiterName: recruiterProfile?.name || currentUser?.displayName || "Recruiter",
+      recruiterName: currentUserName,
+      recruiterEmail: currentUserEmail,
+      recruiterRole: activeParty?.role || recruiterProfile?.position || "Recruiter",
+      partyId: activeParty?.id,
       action,
       candidateName,
       candidateId: extra?.candidateId,
       details,
-      previousValue: extra?.oldStage,
-      newValue: extra?.newStage,
+      fieldChanged: extra?.fieldChanged,
+      previousValue: extra?.previousValue || extra?.oldStage,
+      newValue: extra?.newValue || extra?.newStage,
       glowColor: color,
     };
 
@@ -346,11 +410,9 @@ export default function RecruiterAdminPage() {
       return updated;
     });
 
-    if (currentUser) {
-      saveActivityLogToFirestore(newLog).catch((e) =>
-        console.warn("Error saving log to Firestore:", e)
-      );
-    }
+    saveActivityLogToFirestore(newLog).catch((e) =>
+      console.warn("Error saving log to Firestore:", e)
+    );
   };
 
   const handleClearLogs = () => {
@@ -387,15 +449,37 @@ export default function RecruiterAdminPage() {
     }
   };
 
-  // Fetch Candidates
+  // Fetch Candidates (Firestore Priority + API Sync)
   const fetchCandidates = useCallback(async () => {
     try {
+      // 1. Direct Firestore Fetch (Zero reliance on local ephemeral storage)
+      const firestoreCandidates = await getCandidatesFromFirestore();
+      if (firestoreCandidates && firestoreCandidates.length > 0) {
+        setCandidates(firestoreCandidates);
+        setStats({
+          total: firestoreCandidates.length,
+          newApplied: firestoreCandidates.filter((c) => c.status === "New Applied").length,
+          shortlisted: firestoreCandidates.filter((c) => c.status === "Screening Shortlisted").length,
+          scheduled: firestoreCandidates.filter((c) => c.status === "Line-Up Scheduled").length,
+          interviewDone: firestoreCandidates.filter((c) => c.status === "Interview Done").length,
+          selected: firestoreCandidates.filter((c) => c.status === "Selected").length,
+          rejected: firestoreCandidates.filter((c) => c.status === "Rejected").length,
+        });
+      }
+
+      // 2. Query API Endpoint
       const res = await fetch("/api/candidates");
       const data = await res.json();
       if (data.success && data.candidates) {
-        setCandidates(data.candidates);
-        if (data.stats) {
-          setStats(data.stats);
+        if (!firestoreCandidates || firestoreCandidates.length === 0) {
+          setCandidates(data.candidates);
+          if (data.stats) {
+            setStats(data.stats);
+          }
+          // Populate Firestore if it was empty so data is permanently preserved
+          data.candidates.forEach((c: CandidateItem) => {
+            syncCandidateToFirestore(c).catch(() => {});
+          });
         }
       }
     } catch (err) {
@@ -468,7 +552,7 @@ export default function RecruiterAdminPage() {
       console.warn("Firestore sync error:", e)
     );
 
-    // Audit Log
+    // Audit Log with Before & After State
     addLog(
       "STATUS_CHANGE",
       candidate.fullName,
@@ -476,6 +560,9 @@ export default function RecruiterAdminPage() {
       {
         candidateId: candidate.id,
         role: candidate.appliedRole,
+        fieldChanged: "Candidate Pipeline Status",
+        previousValue: oldStatus,
+        newValue: newStatus,
         oldStage: oldStatus,
         newStage: newStatus,
       }
@@ -524,7 +611,7 @@ export default function RecruiterAdminPage() {
       console.warn("Firestore candidate delete error:", e)
     );
 
-    // Audit Log
+    // Audit Log with Before & After
     addLog(
       "CANDIDATE_DELETED",
       candidate.fullName,
@@ -532,6 +619,9 @@ export default function RecruiterAdminPage() {
       {
         candidateId: candidate.id,
         role: candidate.appliedRole,
+        fieldChanged: "Candidate Record",
+        previousValue: `${candidate.fullName} (${candidate.status})`,
+        newValue: "Permanently Deleted",
         oldStage: candidate.status,
       }
     );
@@ -573,6 +663,24 @@ export default function RecruiterAdminPage() {
       ? "STATUS_CHANGE"
       : "NOTES_UPDATED";
 
+    const fieldChanged = updates.rejectionReason
+      ? "Non-Selection Reason"
+      : updates.status
+      ? "Pipeline Status"
+      : "Recruiter Feedback & Notes";
+
+    const prevVal = updates.rejectionReason
+      ? target?.rejectionReason || "None"
+      : updates.status
+      ? target?.status || "Unknown"
+      : target?.recruiterNotes || "No previous notes";
+
+    const newVal = updates.rejectionReason
+      ? updates.rejectionReason
+      : updates.status
+      ? updates.status
+      : updates.recruiterNotes || "Updated notes";
+
     addLog(
       action,
       target?.fullName || "Candidate",
@@ -582,6 +690,9 @@ export default function RecruiterAdminPage() {
       {
         candidateId,
         role: target?.appliedRole,
+        fieldChanged,
+        previousValue: prevVal,
+        newValue: newVal,
         newStage: updates.status,
       }
     );
@@ -627,6 +738,13 @@ export default function RecruiterAdminPage() {
       console.warn("Firestore reschedule error:", e)
     );
 
+    const oldMeta = formatIndianDateTime(target?.interviewDate);
+    const newMeta = formatIndianDateTime(newDateIso);
+    const oldDateFormatted = target?.interviewDate
+      ? `${oldMeta.dateStr} ${oldMeta.timeStr}`
+      : "Not Scheduled";
+    const newDateFormatted = `${newMeta.dateStr} ${newMeta.timeStr}`;
+
     addLog(
       "RESCHEDULE",
       target?.fullName || "Candidate",
@@ -634,6 +752,9 @@ export default function RecruiterAdminPage() {
       {
         candidateId,
         role: target?.appliedRole,
+        fieldChanged: "Interview Schedule Slot",
+        previousValue: oldDateFormatted,
+        newValue: `${newDateFormatted} (Reason: ${reason})`,
         newStage: "Line-Up Scheduled",
       }
     );
@@ -665,6 +786,9 @@ export default function RecruiterAdminPage() {
       {
         candidateId: newCand.id,
         role: newCand.appliedRole,
+        fieldChanged: "New Candidate Record",
+        previousValue: "Not in Pipeline",
+        newValue: `Created in ${newCand.status || "New Applied"}`,
         newStage: newCand.status,
       }
     );
@@ -724,6 +848,8 @@ export default function RecruiterAdminPage() {
       <RecruiterNavbar
         onOpenAddModal={() => setIsAddModalOpen(true)}
         onOpenExportModal={() => setIsExportModalOpen(true)}
+        onOpenPartiesModal={() => setIsAddPartiesModalOpen(true)}
+        partiesCount={parties.length}
         activeTab={activeTab}
         onTabChange={setActiveTab}
         currentUser={currentUser}
@@ -1450,6 +1576,23 @@ export default function RecruiterAdminPage() {
         currentUser={currentUser}
         existingProfile={recruiterProfile}
         onSaveProfile={handleSaveProfile}
+      />
+
+      {/* Collaborator Parties & Permissions Modal */}
+      <AddPartiesModal
+        isOpen={isAddPartiesModalOpen}
+        onClose={() => setIsAddPartiesModalOpen(false)}
+        parties={parties}
+        currentUser={currentUser}
+        recruiterProfile={recruiterProfile}
+        activeParty={activeParty}
+        onSetActiveParty={setActiveParty}
+        onPartyUpdated={() => {
+          getPartiesFromFirestore().then((res) => {
+            if (res) setParties(res);
+          });
+        }}
+        onAddLog={addLog}
       />
 
       {/* Sticky Bottom Navigation for Mobile */}

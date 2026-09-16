@@ -22,7 +22,13 @@ import {
   orderBy,
   limit,
 } from "firebase/firestore";
-import { CandidateItem, RecruiterProfile, ActivityLogItem, AppSettings } from "./types";
+import {
+  CandidateItem,
+  RecruiterProfile,
+  ActivityLogItem,
+  AppSettings,
+  CollaboratorParty,
+} from "./types";
 
 export const firebaseConfig = {
   apiKey:
@@ -135,6 +141,49 @@ export async function getCandidateFromFirestore(
   }
 }
 
+// Firestore Sync: Get all candidates from Cloud Firestore
+export async function getCandidatesFromFirestore(): Promise<CandidateItem[]> {
+  try {
+    const coll = collection(db, "candidates");
+    const q = query(coll, orderBy("createdAt", "desc"));
+    const snap = await getDocs(q);
+    const list: CandidateItem[] = [];
+    snap.forEach((d) => {
+      list.push(d.data() as CandidateItem);
+    });
+    return list;
+  } catch (err) {
+    console.warn("Firestore get candidates error:", err);
+    return [];
+  }
+}
+
+// Firestore Sync: Real-time listener for candidates collection
+export function subscribeToCandidatesFromFirestore(
+  callback: (candidates: CandidateItem[]) => void
+) {
+  try {
+    const coll = collection(db, "candidates");
+    const q = query(coll, orderBy("createdAt", "desc"));
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        const list: CandidateItem[] = [];
+        snapshot.forEach((d) => {
+          list.push(d.data() as CandidateItem);
+        });
+        callback(list);
+      },
+      (error) => {
+        console.warn("Firestore candidates subscription error:", error);
+      }
+    );
+  } catch (err) {
+    console.warn("Firestore candidates subscription init error:", err);
+    return () => {};
+  }
+}
+
 // Firestore Sync: Save recruiter onboarding profile
 export async function saveRecruiterProfileToFirestore(profile: RecruiterProfile) {
   try {
@@ -202,6 +251,32 @@ export async function getActivityLogsFromFirestore(): Promise<ActivityLogItem[]>
   }
 }
 
+// Firestore Sync: Real-time listener for activity logs
+export function subscribeToActivityLogsFromFirestore(
+  callback: (logs: ActivityLogItem[]) => void
+) {
+  try {
+    const logsRef = collection(db, "activity_logs");
+    const q = query(logsRef, orderBy("timestamp", "desc"), limit(100));
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        const logs: ActivityLogItem[] = [];
+        snapshot.forEach((d) => {
+          logs.push(d.data() as ActivityLogItem);
+        });
+        callback(logs);
+      },
+      (err) => {
+        console.warn("Firestore activity logs subscription error:", err);
+      }
+    );
+  } catch (err) {
+    console.warn("Firestore activity logs subscription init error:", err);
+    return () => {};
+  }
+}
+
 // Firestore Sync: Save app settings (e.g. security PIN)
 export async function saveSettingsToFirestore(settings: AppSettings) {
   try {
@@ -227,5 +302,75 @@ export async function getSettingsFromFirestore(): Promise<AppSettings | null> {
   } catch (err) {
     console.warn("Firestore get settings error:", err);
     return null;
+  }
+}
+
+// ==========================================
+// COLLABORATOR PARTIES FIRESTORE OPERATIONS
+// ==========================================
+
+// Firestore Sync: Save / update party member
+export async function savePartyToFirestore(party: CollaboratorParty) {
+  try {
+    const docRef = doc(db, "parties", party.id);
+    await setDoc(docRef, {
+      ...party,
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.warn("Firestore save party error:", err);
+  }
+}
+
+// Firestore Sync: Delete party member
+export async function deletePartyFromFirestore(partyId: string) {
+  try {
+    const docRef = doc(db, "parties", partyId);
+    await deleteDoc(docRef);
+  } catch (err) {
+    console.warn("Firestore delete party error:", err);
+  }
+}
+
+// Firestore Sync: Get all parties
+export async function getPartiesFromFirestore(): Promise<CollaboratorParty[]> {
+  try {
+    const partiesRef = collection(db, "parties");
+    const q = query(partiesRef, orderBy("createdAt", "desc"));
+    const snap = await getDocs(q);
+    const parties: CollaboratorParty[] = [];
+    snap.forEach((d) => {
+      parties.push(d.data() as CollaboratorParty);
+    });
+    return parties;
+  } catch (err) {
+    console.warn("Firestore get parties error:", err);
+    return [];
+  }
+}
+
+// Firestore Sync: Real-time listener for collaborator parties
+export function subscribeToPartiesFromFirestore(
+  callback: (parties: CollaboratorParty[]) => void
+) {
+  try {
+    const partiesRef = collection(db, "parties");
+    const q = query(partiesRef, orderBy("createdAt", "desc"));
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        const parties: CollaboratorParty[] = [];
+        snapshot.forEach((d) => {
+          parties.push(d.data() as CollaboratorParty);
+        });
+        callback(parties);
+      },
+      (err) => {
+        console.warn("Firestore parties subscription error:", err);
+      }
+    );
+  } catch (err) {
+    console.warn("Firestore parties subscription init error:", err);
+    return () => {};
   }
 }

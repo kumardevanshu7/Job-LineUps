@@ -354,24 +354,43 @@ export default function OnboardingModal({
                       type="button"
                       onClick={() => setAvatarColorId(col.id)}
                       className={`p-2.5 rounded-xl border text-left flex items-center gap-2.5 transition-all ${
-                        col.bg
-                      } ${col.border} ${
                         isSelected
-                          ? "ring-2 ring-primary shadow-sm scale-[1.02]"
-                          : "hover:shadow-xs"
+                          ? "ring-2 ring-primary shadow-sm scale-[1.03]"
+                          : "hover:shadow-xs hover:scale-[1.01]"
                       }`}
+                      style={{
+                        backgroundColor: col.hexBg,
+                        borderColor: col.hexBorder,
+                      }}
                     >
                       <div
-                        className={`w-7 h-7 rounded-full flex items-center justify-center font-cursive font-bold text-sm ${col.text} border ${col.border} bg-white/70 shrink-0`}
+                        className="w-7 h-7 rounded-full flex items-center justify-center font-cursive font-bold text-sm border shadow-2xs shrink-0"
+                        style={{
+                          backgroundColor: "#ffffff",
+                          borderColor: col.hexBorder,
+                          color: col.hexText,
+                        }}
                       >
                         {avatarInitial}
                       </div>
 
-                      <div className="min-w-0">
-                        <div className={`text-xs font-semibold truncate ${col.text}`}>
-                          {col.name.replace("Light ", "")}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            className="w-2.5 h-2.5 rounded-full shrink-0 shadow-2xs border border-white/60"
+                            style={{ backgroundColor: col.hexDot }}
+                          />
+                          <div
+                            className="text-xs font-bold truncate"
+                            style={{ color: col.hexText }}
+                          >
+                            {col.name}
+                          </div>
                         </div>
-                        <div className="text-[10px] text-ink-mute">
+                        <div
+                          className="text-[10px] font-semibold mt-0.5"
+                          style={{ color: col.hexText, opacity: 0.85 }}
+                        >
                           {isSelected ? "Selected" : "Light tint"}
                         </div>
                       </div>

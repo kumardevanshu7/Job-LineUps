@@ -21,6 +21,8 @@ import BrandLogo from "./BrandLogo";
 interface RecruiterNavbarProps {
   onOpenAddModal: () => void;
   onOpenExportModal: () => void;
+  onOpenPartiesModal?: () => void;
+  partiesCount?: number;
   activeTab: "LINEUP" | "CALENDAR" | "LOGS" | "SETTINGS";
   onTabChange: (tab: "LINEUP" | "CALENDAR" | "LOGS" | "SETTINGS") => void;
   currentUser?: User | null;
@@ -33,6 +35,8 @@ interface RecruiterNavbarProps {
 export default function RecruiterNavbar({
   onOpenAddModal,
   onOpenExportModal,
+  onOpenPartiesModal,
+  partiesCount,
   activeTab,
   onTabChange,
   currentUser,
@@ -92,11 +96,26 @@ export default function RecruiterNavbar({
             {/* Manager Export Button */}
             <button
               onClick={onOpenExportModal}
-              className="hidden sm:inline-flex btn-secondary-pill text-xs py-1.5 px-3 items-center gap-1.5 text-ink-secondary hover:text-emerald-700 hover:border-emerald-300 transition-all shadow-2xs"
+              className="hidden md:inline-flex btn-secondary-pill text-xs py-1.5 px-3 items-center gap-1.5 text-ink-secondary hover:text-emerald-700 hover:border-emerald-300 transition-all shadow-2xs"
               title="Download Line-Up for Manager (.xlsx)"
             >
               <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
               <span className="font-medium">Manager Export (.xlsx)</span>
+            </button>
+
+            {/* Add Parties Button */}
+            <button
+              onClick={onOpenPartiesModal}
+              className="inline-flex btn-secondary-pill text-xs py-1.5 sm:py-2 px-2.5 sm:px-3 items-center gap-1.5 text-primary border-primary/30 hover:bg-primary-subdued/50 transition-all shadow-2xs shrink-0"
+              title="Add Collaborator Parties & Configure Permissions"
+            >
+              <Users className="w-3.5 h-3.5 text-primary shrink-0" />
+              <span className="font-semibold">Add Parties</span>
+              {typeof partiesCount === "number" && partiesCount > 0 && (
+                <span className="px-1.5 py-0.2 text-[10px] font-bold rounded-full bg-primary text-white">
+                  {partiesCount}
+                </span>
+              )}
             </button>
 
             {/* Primary Add Candidate CTA */}

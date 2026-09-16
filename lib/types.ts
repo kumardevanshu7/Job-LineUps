@@ -76,6 +76,26 @@ export interface RecruiterProfile {
   updatedAt?: string;
 }
 
+export interface PartyPermissions {
+  canEditStatus: boolean;
+  canReschedule: boolean;
+  canEditNotes: boolean;
+  canDelete: boolean;
+  canExport: boolean;
+}
+
+export interface CollaboratorParty {
+  id: string;
+  name: string;
+  email: string;
+  role: string; // e.g., "Interviewer", "Hiring Manager", "HR Coordinator", "Lead Recruiter"
+  avatarInitial?: string;
+  avatarColorId?: string;
+  permissions: PartyPermissions;
+  createdAt: string;
+  addedBy?: string;
+}
+
 export interface ActivityLogItem {
   id: string;
   action:
@@ -85,15 +105,22 @@ export interface ActivityLogItem {
     | "CANDIDATE_DELETED"
     | "NOTES_UPDATED"
     | "REJECTION_REASON_SAVED"
-    | "SETTINGS_UPDATED";
+    | "SETTINGS_UPDATED"
+    | "PARTY_ADDED"
+    | "PARTY_REMOVED"
+    | "PERMISSIONS_UPDATED";
   candidateId?: string;
   candidateName?: string;
   details: string;
-  previousValue?: string;
-  newValue?: string;
+  fieldChanged?: string; // e.g. "Candidate Status", "Interview Schedule", "Recruiter Notes", "Rejection Reason"
+  previousValue?: string; // e.g. "Screening Shortlisted"
+  newValue?: string; // e.g. "Line-Up Scheduled"
   glowColor: "emerald" | "blue" | "purple" | "indigo" | "cyan" | "rose" | "amber";
   timestamp: string;
   recruiterName?: string;
+  recruiterEmail?: string;
+  recruiterRole?: string;
+  partyId?: string;
 }
 
 export interface AppSettings {

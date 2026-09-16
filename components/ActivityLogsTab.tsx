@@ -14,8 +14,12 @@ import {
   UserPlus,
   Trash2,
   Calendar,
+  Mail,
+  History,
+  ArrowRight,
 } from "lucide-react";
 import { ActivityLogItem } from "@/lib/types";
+import LogComparisonModal from "./LogComparisonModal";
 
 interface ActivityLogsTabProps {
   logs: ActivityLogItem[];
@@ -67,6 +71,8 @@ const GLOW_COLOR_STYLES: Record<
 export default function ActivityLogsTab({ logs, onExportLogs, onClearLogs }: ActivityLogsTabProps) {
   const [search, setSearch] = useState("");
   const [actionFilter, setActionFilter] = useState<string>("ALL");
+  const [selectedLogForComparison, setSelectedLogForComparison] = useState<ActivityLogItem | null>(null);
+  const [isComparisonOpen, setIsComparisonOpen] = useState(false);
 
   const filteredLogs = useMemo(() => {
     return logs.filter((item) => {
@@ -273,12 +279,46 @@ export default function ActivityLogsTab({ logs, onExportLogs, onClearLogs }: Act
                       {log.details}
                     </p>
 
-                    {log.recruiterName && (
-                      <div className="text-[10px] text-ink-mute pt-1 border-t border-hairline flex items-center justify-between">
-                        <span>Action performed by: <strong className="text-ink font-medium">{log.recruiterName}</strong></span>
-                        <span className="text-[9px] font-mono opacity-60">ID: {log.id.slice(0, 8)}</span>
+                    {/* Action performer details (Name + Email) & Compare Button */}
+                    <div className="pt-2 border-t border-hairline flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 flex-wrap text-[11px] text-ink-mute">
+                        <span>
+                          Action by:{" "}
+                          <strong className="text-ink font-semibold">
+                            {log.recruiterName || "Recruiter"}
+                          </strong>
+                        </span>
+                        {log.recruiterEmail && (
+                          <span className="inline-flex items-center gap-1 text-[10px] text-primary bg-primary-subdued/50 px-2 py-0.5 rounded-md border border-primary/20">
+                            <Mail className="w-2.5 h-2.5" />
+                            <span>{log.recruiterEmail}</span>
+                          </span>
+                        )}
                       </div>
-                    )}
+
+                      <div className="flex items-center gap-2">
+                        {(log.previousValue ||
+                          log.newValue ||
+                          log.action === "STATUS_CHANGE" ||
+                          log.action === "RESCHEDULE" ||
+                          log.action === "NOTES_UPDATED" ||
+                          log.action === "REJECTION_REASON_SAVED") && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedLogForComparison(log);
+                              setIsComparisonOpen(true);
+                            }}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[10px] sm:text-[11px] font-bold rounded-lg bg-primary-subdued hover:bg-primary hover:text-white text-primary-deep border border-primary/30 transition-all shadow-2xs cursor-pointer"
+                            title="Open before and after state comparison popup card"
+                          >
+                            <History className="w-3 h-3" />
+                            <span>Compare Changes</span>
+                          </button>
+                        )}
+                        <span className="text-[9px] font-mono opacity-50">ID: {log.id.slice(0, 8)}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
               );
@@ -286,6 +326,16 @@ export default function ActivityLogsTab({ logs, onExportLogs, onClearLogs }: Act
           </div>
         )}
       </div>
+
+      {/* Comparison Modal Popup Card */}
+      <LogComparisonModal
+        isOpen={isComparisonOpen}
+        onClose={() => {
+          setIsComparisonOpen(false);
+          setSelectedLogForComparison(null);
+        }}
+        logItem={selectedLogForComparison}
+      />
     </div>
   );
 }
