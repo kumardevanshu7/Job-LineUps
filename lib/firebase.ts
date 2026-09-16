@@ -19,6 +19,7 @@ import {
   deleteDoc,
   onSnapshot,
   query,
+  where,
   orderBy,
   limit,
 } from "firebase/firestore";
@@ -28,6 +29,8 @@ import {
   ActivityLogItem,
   AppSettings,
   CollaboratorParty,
+  Team,
+  TeamJoinRequest,
 } from "./types";
 
 export const firebaseConfig = {
@@ -372,5 +375,161 @@ export function subscribeToPartiesFromFirestore(
   } catch (err) {
     console.warn("Firestore parties subscription init error:", err);
     return () => {};
+  }
+}
+
+// ==========================================
+// TEAMS & COLLABORATION FIREBASE SYNC
+// ==========================================
+
+// Save or update team document
+export async function saveTeamToFirestore(team: Team) {
+  try {
+    const docRef = doc(db, "teams", team.id);
+    await setDoc(docRef, {
+      ...team,
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.warn("Firestore save team error:", err);
+  }
+}
+
+// Get user's own team
+export async function getMyTeamFromFirestore(ownerUid: string): Promise<Team | null> {
+  try {
+    const teamsRef = collection(db, "teams");
+    const q = query(teamsRef, where("ownerUid", "==", ownerUid), limit(1));
+    const snap = await getDocs(q);
+    if (!snap.empty) {
+      return snap.docs[0].data() as Team;
+    }
+    return null;
+  } catch (err) {
+    console.warn("Firestore get my team error:", err);
+    return null;
+  }
+}
+
+// Real-time subscription to user's own team
+export function subscribeToMyTeamFromFirestore(
+  ownerUid: string,
+  callback: (team: Team | null) => void
+) {
+  try {
+    const teamsRef = collection(db, "teams");
+    const q = query(teamsRef, where("ownerUid", "==", ownerUid), limit(1));
+    return onSnapshot(
+      q,
+      (snap) => {
+        if (!snap.empty) {
+          callback(snap.docs[0].data() as Team);
+        } else {
+          callback(null);
+        }
+      },
+      (err) => {
+        console.warn("Firestore my team subscription error:", err);
+      }
+    );
+  } catch (err) {
+    console.warn("Firestore my team subscription init error:", err);
+    return () => {};
+  }
+}
+
+// Search public teams by query (matches team name or owner username)
+export async function searchTeamsFromFirestore(queryText: string): Promise<Team[]> {
+  try {
+    const cleanQ = queryText.trim().toLowerCase().replace(/^@/, "");
+    const teamsRef = collection(db, "teams");
+    const snap = await getDocs(teamsRef);
+    const results: Team[] = [];
+    snap.forEach((d) => {
+      const data = d.data() as Team;
+      const teamName = (data.name || "").toLowerCase();
+      const ownerUser = (data.ownerUsername || "").toLowerCase().replace(/^@/, "");
+      const ownerName = (data.ownerName || "").toLowerCase();
+
+      // Show if matches and either isPublic is true OR search matches exact username
+      if (
+        data.isPublic ||
+        ownerUser === cleanQ ||
+        teamName.includes(cleanQ)
+      ) {
+        if (
+          !cleanQ ||
+          teamName.includes(cleanQ) ||
+          ownerUser.includes(cleanQ) ||
+          ownerName.includes(cleanQ)
+        ) {
+          results.push(data);
+        }
+      }
+    });
+    return results;
+  } catch (err) {
+    console.warn("Firestore search teams error:", err);
+    return [];
+  }
+}
+
+// Send a join request to a team
+export async function sendTeamJoinRequestToFirestore(req: TeamJoinRequest) {
+  try {
+    const docRef = doc(db, "team_requests", req.id);
+    await setDoc(docRef, {
+      ...req,
+      createdAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.warn("Firestore send team request error:", err);
+  }
+}
+
+// Real-time listener for incoming team join requests for owner's team
+export function subscribeToTeamRequestsFromFirestore(
+  teamId: string,
+  callback: (requests: TeamJoinRequest[]) => void
+) {
+  try {
+    const reqsRef = collection(db, "team_requests");
+    const q = query(
+      reqsRef,
+      where("teamId", "==", teamId),
+      where("status", "==", "PENDING")
+    );
+    return onSnapshot(
+      q,
+      (snap) => {
+        const reqs: TeamJoinRequest[] = [];
+        snap.forEach((d) => {
+          reqs.push(d.data() as TeamJoinRequest);
+        });
+        callback(reqs);
+      },
+      (err) => {
+        console.warn("Firestore team requests subscription error:", err);
+      }
+    );
+  } catch (err) {
+    console.warn("Firestore team requests subscription init error:", err);
+    return () => {};
+  }
+}
+
+// Accept or reject a team join request
+export async function updateTeamRequestStatusInFirestore(
+  requestId: string,
+  status: "ACCEPTED" | "REJECTED"
+) {
+  try {
+    const docRef = doc(db, "team_requests", requestId);
+    await updateDoc(docRef, {
+      status,
+      respondedAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.warn("Firestore update team request status error:", err);
   }
 }

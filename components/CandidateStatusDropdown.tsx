@@ -16,47 +16,48 @@ export interface StatusStyleMeta {
 export const STATUS_META_MAP: Record<string, StatusStyleMeta> = {
   "New Applied": {
     label: "New Applied",
+    dotColor: "bg-yellow-500",
+    pillBg: "bg-yellow-50",
+    pillText: "text-yellow-700",
+    pillBorder: "border-yellow-300",
+  },
+  "Screening Shortlisted": {
+    label: "Screening Shortlisted",
     dotColor: "bg-blue-600",
     pillBg: "bg-blue-50",
     pillText: "text-blue-700",
     pillBorder: "border-blue-200",
   },
-  "Screening Shortlisted": {
-    label: "Screening Shortlisted",
+  "Line-Up Scheduled": {
+    label: "Line-Up Scheduled",
     dotColor: "bg-purple-600",
     pillBg: "bg-purple-50",
     pillText: "text-purple-700",
     pillBorder: "border-purple-200",
   },
-  "Line-Up Scheduled": {
-    label: "Line-Up Scheduled",
-    dotColor: "bg-[#533afd]",
-    pillBg: "bg-primary-subdued/70",
-    pillText: "text-primary-deep",
-    pillBorder: "border-primary-subdued",
-  },
   "Interview Done": {
     label: "Interview Done",
-    dotColor: "bg-cyan-600",
-    pillBg: "bg-cyan-50",
-    pillText: "text-cyan-700",
-    pillBorder: "border-cyan-200",
+    dotColor: "bg-amber-700",
+    pillBg: "bg-amber-50",
+    pillText: "text-amber-800",
+    pillBorder: "border-amber-300",
   },
   Selected: {
     label: "Selected",
-    dotColor: "bg-emerald-600",
-    pillBg: "bg-emerald-50",
-    pillText: "text-emerald-700",
-    pillBorder: "border-emerald-200",
+    dotColor: "bg-green-600",
+    pillBg: "bg-green-50",
+    pillText: "text-green-700",
+    pillBorder: "border-green-200",
   },
   Rejected: {
     label: "Rejected",
-    dotColor: "bg-rose-500",
-    pillBg: "bg-rose-50",
-    pillText: "text-rose-700",
-    pillBorder: "border-rose-200",
+    dotColor: "bg-red-500",
+    pillBg: "bg-red-50",
+    pillText: "text-red-700",
+    pillBorder: "border-red-200",
   },
 };
+
 
 export const STATUS_LIST: CandidateStatus[] = [
   "New Applied",

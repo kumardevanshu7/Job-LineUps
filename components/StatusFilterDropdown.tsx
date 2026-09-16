@@ -12,12 +12,12 @@ export interface StatusOption {
 
 export const STAGE_OPTIONS: StatusOption[] = [
   { value: "ALL", label: "All Stages", dotColor: "bg-slate-400", dotHex: "#94a3b8" },
-  { value: "New Applied", label: "New Applied", dotColor: "bg-blue-600", dotHex: "#2563eb" },
-  { value: "Screening Shortlisted", label: "Screening Shortlisted", dotColor: "bg-purple-600", dotHex: "#9333ea" },
-  { value: "Line-Up Scheduled", label: "Line-Up Scheduled", dotColor: "bg-[#533afd]", dotHex: "#533afd" },
-  { value: "Interview Done", label: "Interview Done", dotColor: "bg-cyan-600", dotHex: "#0891b2" },
-  { value: "Selected", label: "Selected", dotColor: "bg-emerald-600", dotHex: "#059669" },
-  { value: "Rejected", label: "Rejected", dotColor: "bg-rose-500", dotHex: "#f43f5e" },
+  { value: "New Applied", label: "New Applied", dotColor: "bg-yellow-500", dotHex: "#eab308" },
+  { value: "Screening Shortlisted", label: "Screening Shortlisted", dotColor: "bg-blue-600", dotHex: "#2563eb" },
+  { value: "Line-Up Scheduled", label: "Line-Up Scheduled", dotColor: "bg-purple-600", dotHex: "#9333ea" },
+  { value: "Interview Done", label: "Interview Done", dotColor: "bg-amber-700", dotHex: "#b45309" },
+  { value: "Selected", label: "Selected", dotColor: "bg-green-600", dotHex: "#16a34a" },
+  { value: "Rejected", label: "Rejected", dotColor: "bg-red-500", dotHex: "#ef4444" },
 ];
 
 interface StatusFilterDropdownProps {

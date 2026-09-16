@@ -25,6 +25,10 @@ import {
   Shield,
   DollarSign,
   AlertTriangle,
+  Copy,
+  ChevronDown,
+  Lock,
+  Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -113,6 +117,12 @@ export default function CandidateDetailPage() {
   const [pinActionTitle, setPinActionTitle] = useState("");
   const [pinActionDescription, setPinActionDescription] = useState("");
   const [pendingAction, setPendingAction] = useState<(() => void | Promise<void>) | null>(null);
+
+  // Edit Mode (PIN-gated)
+  const [isEditUnlocked, setIsEditUnlocked] = useState(false);
+
+  // Email dropdown menu
+  const [emailMenuOpen, setEmailMenuOpen] = useState(false);
 
   // Candidate Audit Logs
   const [candidateLogs, setCandidateLogs] = useState<ActivityLogItem[]>([]);
@@ -451,57 +461,85 @@ export default function CandidateDetailPage() {
     <div className="min-h-screen bg-canvas-soft flex flex-col pb-24">
       {/* Top Header Command Bar */}
       <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-hairline shadow-2xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
-          {/* Left: Back Link & Candidate Name */}
-          <div className="flex items-center gap-3 min-w-0">
-            <Link
-              href="/admin"
-              className="p-2 rounded-lg text-ink-mute hover:text-ink hover:bg-canvas-soft border border-hairline transition-colors shrink-0"
-              title="Back to Candidate Line-Up"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </Link>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Single row on desktop, two rows on mobile */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between sm:h-16 gap-0">
+            {/* Row 1: Back + Candidate Name */}
+            <div className="flex items-center gap-3 min-w-0 h-14 sm:h-auto">
+              <Link
+                href="/admin"
+                className="p-2 rounded-lg text-ink-mute hover:text-ink hover:bg-canvas-soft border border-hairline transition-colors shrink-0"
+                title="Back to Candidate Line-Up"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </Link>
 
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="text-base sm:text-lg font-bold text-ink truncate">
-                  {fullName || "Candidate Dossier"}
-                </h1>
-                <span className="font-mono text-[11px] px-2 py-0.5 rounded-md bg-canvas-soft border border-hairline text-ink-mute shrink-0">
-                  {candidate.id}
-                </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h1 className="text-base sm:text-lg font-bold text-ink truncate max-w-[160px] sm:max-w-xs">
+                    {fullName || "Candidate Dossier"}
+                  </h1>
+                  <span className="font-mono text-[11px] px-2 py-0.5 rounded-md bg-canvas-soft border border-hairline text-ink-mute shrink-0">
+                    {candidate.id}
+                  </span>
+                </div>
+                <p className="text-[11px] text-ink-mute truncate">
+                  {appliedRole} • {location}
+                </p>
               </div>
-              <p className="text-[11px] text-ink-mute truncate">
-                {appliedRole} • {location}
-              </p>
+
+              {/* Status + Save visible inline on desktop only */}
+              <div className="hidden sm:flex items-center gap-2 shrink-0">
+                <CandidateStatusDropdown
+                  currentStatus={status}
+                  onSelectStatus={handleStatusSelect}
+                />
+                <button
+                  onClick={() => handleSave()}
+                  disabled={saving}
+                  className="btn-primary-pill text-xs py-2 px-3.5 sm:px-4 inline-flex items-center gap-1.5 shadow-xs"
+                >
+                  {saving ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>Saving...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-3.5 h-3.5" />
+                      <span className="font-semibold">Save Changes</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
-          </div>
 
-          {/* Right: Status Dropdown & Save Button */}
-          <div className="flex items-center gap-2 shrink-0">
-            <CandidateStatusDropdown
-              currentStatus={status}
-              onSelectStatus={handleStatusSelect}
-            />
-
-            <button
-              onClick={() => handleSave()}
-              disabled={saving}
-              className="btn-primary-pill text-xs py-2 px-3.5 sm:px-4 inline-flex items-center gap-1.5 shadow-xs"
-            >
-              {saving ? (
-                <>
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>Saving...</span>
-                </>
-              ) : (
-                <>
-                  <Save className="w-3.5 h-3.5" />
-                  <span className="font-semibold hidden sm:inline">Save Changes</span>
-                  <span className="font-semibold sm:hidden">Save</span>
-                </>
-              )}
-            </button>
+            {/* Row 2 (mobile only): Status + Save */}
+            <div className="flex sm:hidden items-center gap-2 pb-2.5 border-t border-hairline pt-2.5">
+              <div className="flex-1">
+                <CandidateStatusDropdown
+                  currentStatus={status}
+                  onSelectStatus={handleStatusSelect}
+                />
+              </div>
+              <button
+                onClick={() => handleSave()}
+                disabled={saving}
+                className="btn-primary-pill text-xs py-2 px-3.5 inline-flex items-center gap-1.5 shadow-xs shrink-0"
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-3.5 h-3.5" />
+                    <span className="font-semibold">Save</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </header>
@@ -529,13 +567,45 @@ export default function CandidateDetailPage() {
               <span>WhatsApp Message</span>
             </a>
 
-            <a
-              href={`mailto:${email}`}
-              className="px-3 py-2 rounded-xl bg-canvas-soft hover:bg-canvas border border-hairline font-semibold text-ink inline-flex items-center gap-2 transition-all"
-            >
-              <Mail className="w-3.5 h-3.5 text-primary" />
-              <span>{email}</span>
-            </a>
+            {/* Email — Click for options */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setEmailMenuOpen((v) => !v)}
+                className="px-3 py-2 rounded-xl bg-canvas-soft hover:bg-canvas border border-hairline font-semibold text-ink inline-flex items-center gap-2 transition-all hover:border-primary/40"
+              >
+                <Mail className="w-3.5 h-3.5 text-primary" />
+                <span>{email}</span>
+                <ChevronDown className="w-3 h-3 text-ink-mute" />
+              </button>
+
+              {emailMenuOpen && (
+                <div className="absolute top-full left-0 mt-1 z-50 bg-canvas border border-hairline rounded-xl shadow-level2 min-w-[170px] overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      navigator.clipboard.writeText(email);
+                      toast.success("Email copied!");
+                      setEmailMenuOpen(false);
+                    }}
+                    className="w-full text-left px-4 py-2.5 text-xs font-medium text-ink hover:bg-canvas-soft flex items-center gap-2 transition-colors"
+                  >
+                    <Copy className="w-3.5 h-3.5 text-ink-mute" />
+                    Copy Email
+                  </button>
+                  <a
+                    href={`https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(email)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => setEmailMenuOpen(false)}
+                    className="w-full text-left px-4 py-2.5 text-xs font-medium text-primary hover:bg-primary-subdued/30 flex items-center gap-2 transition-colors border-t border-hairline"
+                  >
+                    <Mail className="w-3.5 h-3.5 text-primary" />
+                    Mail Them
+                  </a>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="flex items-center gap-2">
@@ -613,21 +683,21 @@ export default function CandidateDetailPage() {
                 </div>
 
                 {/* Expected CTC Card */}
-                <div className="p-4 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 space-y-2">
-                  <span className="text-[11px] font-bold text-emerald-800 dark:text-emerald-400 uppercase tracking-wider block">
+                <div className="p-4 rounded-xl bg-emerald-600 border border-emerald-700 space-y-2 shadow-sm">
+                  <span className="text-[11px] font-bold text-emerald-100 uppercase tracking-wider block">
                     Expected Package Breakdown
                   </span>
                   <div className="flex items-baseline justify-between">
                     <div>
-                      <span className="text-xl font-bold text-emerald-700 dark:text-emerald-300">
+                      <span className="text-xl font-bold text-white">
                         {expectedCtcBreakdown?.monthlyFormatted || "—"}
                       </span>
-                      <span className="text-xs text-emerald-800/80 dark:text-emerald-400/80 block mt-0.5">
+                      <span className="text-xs text-emerald-100 block mt-0.5">
                         {expectedCtcBreakdown ? `Annual: ${expectedCtcBreakdown.annualFormatted}` : "As per company standards"}
                       </span>
                     </div>
                     {expectedCtcBreakdown && (
-                      <span className="text-xs font-bold text-emerald-700 bg-white dark:bg-emerald-900 px-2 py-1 rounded-md border border-emerald-300">
+                      <span className="text-xs font-bold text-emerald-700 bg-white px-2 py-1 rounded-md border border-emerald-200 shadow-xs">
                         {expectedCtcBreakdown.monthlyShort}
                       </span>
                     )}
@@ -793,10 +863,46 @@ export default function CandidateDetailPage() {
 
             {/* Box 3: Candidate Profile & Experience Details */}
             <div className="bg-canvas border border-hairline rounded-2xl p-5 sm:p-6 shadow-level1 space-y-4">
-              <h2 className="text-sm font-bold text-ink pb-3 border-b border-hairline flex items-center gap-2">
-                <Briefcase className="w-4 h-4 text-primary" />
-                <span>Candidate Profile &amp; Role Details</span>
-              </h2>
+              <div className="flex items-center justify-between pb-3 border-b border-hairline">
+                <h2 className="text-sm font-bold text-ink flex items-center gap-2">
+                  <Briefcase className="w-4 h-4 text-primary" />
+                  <span>Candidate Profile &amp; Role Details</span>
+                </h2>
+
+                {isEditUnlocked ? (
+                  <button
+                    type="button"
+                    onClick={() => setIsEditUnlocked(false)}
+                    className="text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center gap-1.5 transition-colors hover:bg-emerald-100"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                    Editing — Click to Lock
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      requestProtectedAction(
+                        "Unlock Profile Editing",
+                        "Enter your 4-digit Security PIN to unlock and edit candidate profile details.",
+                        false,
+                        () => setIsEditUnlocked(true)
+                      )
+                    }
+                    className="text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 inline-flex items-center gap-1.5 transition-colors hover:bg-amber-100"
+                  >
+                    <Lock className="w-3.5 h-3.5" />
+                    Edit Profile
+                  </button>
+                )}
+              </div>
+
+              {!isEditUnlocked && (
+                <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 flex items-center gap-2">
+                  <Lock className="w-3.5 h-3.5 shrink-0" />
+                  Profile fields are locked. Click <strong>Edit Profile</strong> and enter your PIN to make changes.
+                </p>
+              )}
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                 <div>
@@ -807,7 +913,8 @@ export default function CandidateDetailPage() {
                     type="text"
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
-                    className="w-full text-xs px-3 py-2 rounded-xl border border-hairline-input bg-canvas text-ink focus:outline-none focus:border-primary"
+                    disabled={!isEditUnlocked}
+                    className={`w-full text-xs px-3 py-2 rounded-xl border focus:outline-none transition-colors ${isEditUnlocked ? "border-hairline-input bg-canvas text-ink focus:border-primary" : "border-hairline bg-canvas-soft text-ink-mute cursor-not-allowed"}`}
                   />
                 </div>
 
@@ -819,7 +926,8 @@ export default function CandidateDetailPage() {
                     type="text"
                     value={appliedRole}
                     onChange={(e) => setAppliedRole(e.target.value)}
-                    className="w-full text-xs px-3 py-2 rounded-xl border border-hairline-input bg-canvas text-ink focus:outline-none focus:border-primary"
+                    disabled={!isEditUnlocked}
+                    className={`w-full text-xs px-3 py-2 rounded-xl border focus:outline-none transition-colors ${isEditUnlocked ? "border-hairline-input bg-canvas text-ink focus:border-primary" : "border-hairline bg-canvas-soft text-ink-mute cursor-not-allowed"}`}
                   />
                 </div>
 
@@ -831,7 +939,8 @@ export default function CandidateDetailPage() {
                     type="text"
                     value={location}
                     onChange={(e) => setLocation(e.target.value)}
-                    className="w-full text-xs px-3 py-2 rounded-xl border border-hairline-input bg-canvas text-ink focus:outline-none focus:border-primary"
+                    disabled={!isEditUnlocked}
+                    className={`w-full text-xs px-3 py-2 rounded-xl border focus:outline-none transition-colors ${isEditUnlocked ? "border-hairline-input bg-canvas text-ink focus:border-primary" : "border-hairline bg-canvas-soft text-ink-mute cursor-not-allowed"}`}
                   />
                 </div>
 
@@ -844,7 +953,8 @@ export default function CandidateDetailPage() {
                     step="0.5"
                     value={experienceYears}
                     onChange={(e) => setExperienceYears(parseFloat(e.target.value) || 0)}
-                    className="w-full text-xs px-3 py-2 rounded-xl border border-hairline-input bg-canvas text-ink focus:outline-none focus:border-primary"
+                    disabled={!isEditUnlocked}
+                    className={`w-full text-xs px-3 py-2 rounded-xl border focus:outline-none transition-colors ${isEditUnlocked ? "border-hairline-input bg-canvas text-ink focus:border-primary" : "border-hairline bg-canvas-soft text-ink-mute cursor-not-allowed"}`}
                   />
                 </div>
 
@@ -856,7 +966,8 @@ export default function CandidateDetailPage() {
                     type="number"
                     value={noticePeriodDays}
                     onChange={(e) => setNoticePeriodDays(parseInt(e.target.value) || 0)}
-                    className="w-full text-xs px-3 py-2 rounded-xl border border-hairline-input bg-canvas text-ink focus:outline-none focus:border-primary"
+                    disabled={!isEditUnlocked}
+                    className={`w-full text-xs px-3 py-2 rounded-xl border focus:outline-none transition-colors ${isEditUnlocked ? "border-hairline-input bg-canvas text-ink focus:border-primary" : "border-hairline bg-canvas-soft text-ink-mute cursor-not-allowed"}`}
                   />
                 </div>
 
@@ -868,7 +979,8 @@ export default function CandidateDetailPage() {
                     type="url"
                     value={resumeUrl}
                     onChange={(e) => setResumeUrl(e.target.value)}
-                    className="w-full text-xs px-3 py-2 rounded-xl border border-hairline-input bg-canvas text-ink focus:outline-none focus:border-primary"
+                    disabled={!isEditUnlocked}
+                    className={`w-full text-xs px-3 py-2 rounded-xl border focus:outline-none transition-colors ${isEditUnlocked ? "border-hairline-input bg-canvas text-ink focus:border-primary" : "border-hairline bg-canvas-soft text-ink-mute cursor-not-allowed"}`}
                   />
                 </div>
               </div>

@@ -25,6 +25,9 @@ export const metadata: Metadata = {
     statusBarStyle: "default",
     title: "TalentFlow",
   },
+  other: {
+    "mobile-web-app-capable": "yes",
+  },
   formatDetection: {
     telephone: false,
   },

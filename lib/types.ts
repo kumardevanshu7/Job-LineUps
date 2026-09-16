@@ -66,6 +66,7 @@ export interface RecruiterUser {
 export interface RecruiterProfile {
   uid: string;
   name: string;
+  username?: string; // e.g. @devanshu — used for team search
   age?: number | string | null;
   gender?: "Male" | "Female" | "Other" | "Prefer not to say" | string;
   company: string; // Where you work
@@ -130,6 +131,31 @@ export interface AppSettings {
   requirePinForDelete?: boolean;
   webhookUrl?: string;
   updatedAt?: string;
+}
+
+export interface Team {
+  id: string;
+  name: string;
+  ownerUid: string;
+  ownerName: string;
+  ownerUsername: string;
+  isPublic: boolean;
+  members: CollaboratorParty[];
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface TeamJoinRequest {
+  id: string;
+  teamId: string;
+  teamName: string;
+  ownerUid: string;
+  requesterUid: string;
+  requesterName: string;
+  requesterEmail: string;
+  requesterUsername?: string;
+  status: "PENDING" | "ACCEPTED" | "REJECTED";
+  createdAt: string;
 }
 
 

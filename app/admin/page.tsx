@@ -74,40 +74,40 @@ const PASTEL_CARD_THEMES: Record<
   { cardBg: string; cardBorder: string; badgeBg: string; badgeText: string }
 > = {
   "New Applied": {
+    cardBg: "bg-yellow-50/60",
+    cardBorder: "border-yellow-200/80 hover:border-yellow-300",
+    badgeBg: "bg-yellow-100",
+    badgeText: "text-yellow-800",
+  },
+  "Screening Shortlisted": {
     cardBg: "bg-blue-50/60",
     cardBorder: "border-blue-200/80 hover:border-blue-300",
     badgeBg: "bg-blue-100",
     badgeText: "text-blue-800",
   },
-  "Screening Shortlisted": {
+  "Line-Up Scheduled": {
     cardBg: "bg-purple-50/60",
     cardBorder: "border-purple-200/80 hover:border-purple-300",
     badgeBg: "bg-purple-100",
     badgeText: "text-purple-800",
   },
-  "Line-Up Scheduled": {
-    cardBg: "bg-indigo-50/60",
-    cardBorder: "border-indigo-200/80 hover:border-indigo-300",
-    badgeBg: "bg-primary-subdued/80",
-    badgeText: "text-primary-deep",
-  },
   "Interview Done": {
-    cardBg: "bg-cyan-50/60",
-    cardBorder: "border-cyan-200/80 hover:border-cyan-300",
-    badgeBg: "bg-cyan-100",
-    badgeText: "text-cyan-800",
+    cardBg: "bg-amber-50/60",
+    cardBorder: "border-amber-200/80 hover:border-amber-300",
+    badgeBg: "bg-amber-100",
+    badgeText: "text-amber-800",
   },
   Selected: {
-    cardBg: "bg-emerald-50/60",
-    cardBorder: "border-emerald-200/80 hover:border-emerald-300",
-    badgeBg: "bg-emerald-100",
-    badgeText: "text-emerald-800",
+    cardBg: "bg-green-50/60",
+    cardBorder: "border-green-200/80 hover:border-green-300",
+    badgeBg: "bg-green-100",
+    badgeText: "text-green-800",
   },
   Rejected: {
-    cardBg: "bg-rose-50/60",
-    cardBorder: "border-rose-200/80 hover:border-rose-300",
-    badgeBg: "bg-rose-100",
-    badgeText: "text-rose-800",
+    cardBg: "bg-red-50/60",
+    cardBorder: "border-red-200/80 hover:border-red-300",
+    badgeBg: "bg-red-100",
+    badgeText: "text-red-800",
   },
 };
 
@@ -117,39 +117,39 @@ const STATUS_CONFIG: Record<
 > = {
   "New Applied": {
     label: "New Applied",
+    bg: "bg-yellow-50",
+    text: "text-yellow-700",
+    border: "border-yellow-300",
+  },
+  "Screening Shortlisted": {
+    label: "Screening Shortlisted",
     bg: "bg-blue-50",
     text: "text-blue-700",
     border: "border-blue-200",
   },
-  "Screening Shortlisted": {
-    label: "Screening Shortlisted",
+  "Line-Up Scheduled": {
+    label: "Line-Up Scheduled",
     bg: "bg-purple-50",
     text: "text-purple-700",
     border: "border-purple-200",
   },
-  "Line-Up Scheduled": {
-    label: "Line-Up Scheduled",
-    bg: "bg-primary-subdued/70",
-    text: "text-primary-deep",
-    border: "border-primary-subdued",
-  },
   "Interview Done": {
     label: "Interview Done",
-    bg: "bg-cyan-50",
-    text: "text-cyan-700",
-    border: "border-cyan-200",
+    bg: "bg-amber-50",
+    text: "text-amber-800",
+    border: "border-amber-300",
   },
   Selected: {
     label: "Selected",
-    bg: "bg-emerald-50",
-    text: "text-emerald-700",
-    border: "border-emerald-200",
+    bg: "bg-green-50",
+    text: "text-green-700",
+    border: "border-green-200",
   },
   Rejected: {
     label: "Rejected",
-    bg: "bg-slate-100",
-    text: "text-slate-600",
-    border: "border-slate-200",
+    bg: "bg-red-50",
+    text: "text-red-700",
+    border: "border-red-200",
   },
 };
 
@@ -1576,6 +1576,7 @@ export default function RecruiterAdminPage() {
         currentUser={currentUser}
         existingProfile={recruiterProfile}
         onSaveProfile={handleSaveProfile}
+        settings={settings}
       />
 
       {/* Collaborator Parties & Permissions Modal */}

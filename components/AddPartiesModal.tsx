@@ -1,6 +1,6 @@
-﻿"use client";
+"use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Users,
   UserPlus,
@@ -9,10 +9,38 @@ import {
   Trash2,
   Mail,
   UserCheck,
+  Search,
+  Globe,
+  Lock,
+  Check,
+  Clock,
+  ArrowRight,
+  Send,
+  Sparkles,
+  ChevronRight,
+  Plus,
+  CheckCircle2,
+  Crown,
+  Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
-import { CollaboratorParty, PartyPermissions, RecruiterProfile } from "@/lib/types";
-import { savePartyToFirestore, deletePartyFromFirestore } from "@/lib/firebase";
+import {
+  CollaboratorParty,
+  PartyPermissions,
+  RecruiterProfile,
+  Team,
+  TeamJoinRequest,
+} from "@/lib/types";
+import {
+  savePartyToFirestore,
+  deletePartyFromFirestore,
+  saveTeamToFirestore,
+  subscribeToMyTeamFromFirestore,
+  searchTeamsFromFirestore,
+  sendTeamJoinRequestToFirestore,
+  subscribeToTeamRequestsFromFirestore,
+  updateTeamRequestStatusInFirestore,
+} from "@/lib/firebase";
 import CursiveAvatar from "./CursiveAvatar";
 import { User } from "firebase/auth";
 
@@ -77,6 +105,26 @@ export default function AddPartiesModal({
   onPartyUpdated,
   onAddLog,
 }: AddPartiesModalProps) {
+  // Navigation tabs: MY_TEAM, SEARCH, REQUESTS
+  const [activeTab, setActiveTab] = useState<"MY_TEAM" | "SEARCH" | "REQUESTS">("MY_TEAM");
+
+  // Team state
+  const [myTeam, setMyTeam] = useState<Team | null>(null);
+  const [teamNameInput, setTeamNameInput] = useState("");
+  const [isPublicTeam, setIsPublicTeam] = useState(true);
+  const [isCreatingTeam, setIsCreatingTeam] = useState(false);
+
+  // Search state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<Team[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [sentRequestTeamIds, setSentRequestTeamIds] = useState<Set<string>>(new Set());
+
+  // Requests state
+  const [incomingRequests, setIncomingRequests] = useState<TeamJoinRequest[]>([]);
+
+  // Direct Add Party state
+  const [showDirectAdd, setShowDirectAdd] = useState(false);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState(PRESET_ROLES[0]);
@@ -92,12 +140,202 @@ export default function AddPartiesModal({
     canExport: true,
   });
 
+  // Current username
+  const currentUsername =
+    recruiterProfile?.username ||
+    (currentUser?.displayName
+      ? "@" + currentUser.displayName.toLowerCase().replace(/\s+/g, "").replace(/[^a-z0-9_]/g, "")
+      : "@recruiter");
+
+  // Real-time subscription to user's team
+  useEffect(() => {
+    if (!isOpen || !currentUser) return;
+    const unsub = subscribeToMyTeamFromFirestore(currentUser.uid, (team) => {
+      setMyTeam(team);
+      if (team) {
+        setTeamNameInput(team.name);
+        setIsPublicTeam(team.isPublic);
+      }
+    });
+    return () => unsub();
+  }, [isOpen, currentUser]);
+
+  // Real-time subscription to incoming join requests for this team
+  useEffect(() => {
+    if (!isOpen || !myTeam) return;
+    const unsub = subscribeToTeamRequestsFromFirestore(myTeam.id, (reqs) => {
+      setIncomingRequests(reqs);
+    });
+    return () => unsub();
+  }, [isOpen, myTeam]);
+
+  // Live search when query changes
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      setIsSearching(true);
+      try {
+        const res = await searchTeamsFromFirestore(searchQuery);
+        setSearchResults(res);
+      } catch (err) {
+        console.warn("Search error:", err);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
   if (!isOpen) return null;
 
-  const handleTogglePermission = (key: keyof PartyPermissions) => {
-    setPermissions((prev) => ({ ...prev, [key]: !prev[key] }));
+  // Handler: Create or Update Team
+  const handleSaveTeam = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!teamNameInput.trim()) {
+      toast.error("Please enter a team name.");
+      return;
+    }
+    if (!currentUser) return;
+
+    setIsCreatingTeam(true);
+    const teamId = myTeam?.id || `team-${currentUser.uid}`;
+    const newTeam: Team = {
+      id: teamId,
+      name: teamNameInput.trim(),
+      ownerUid: currentUser.uid,
+      ownerName: recruiterProfile?.name || currentUser.displayName || "Recruiter",
+      ownerUsername: currentUsername,
+      isPublic: isPublicTeam,
+      members: myTeam?.members || parties || [],
+      createdAt: myTeam?.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    try {
+      await saveTeamToFirestore(newTeam);
+      setMyTeam(newTeam);
+      toast.success(myTeam ? "Team settings updated!" : `Team "${newTeam.name}" created successfully!`);
+    } catch (err) {
+      toast.error("Failed to save team");
+    } finally {
+      setIsCreatingTeam(false);
+    }
   };
 
+  // Handler: Toggle Team Public/Private
+  const handleTogglePublic = async () => {
+    if (!myTeam) return;
+    const updated = !isPublicTeam;
+    setIsPublicTeam(updated);
+    try {
+      await saveTeamToFirestore({
+        ...myTeam,
+        isPublic: updated,
+        updatedAt: new Date().toISOString(),
+      });
+      toast.success(updated ? "Team is now Public and searchable!" : "Team is now Private.");
+    } catch (err) {
+      toast.error("Failed to update visibility");
+    }
+  };
+
+  // Handler: Send Request to Join Team
+  const handleSendJoinRequest = async (targetTeam: Team) => {
+    if (!currentUser) return;
+    const requestId = `req-${Date.now()}-${currentUser.uid.slice(0, 5)}`;
+    const req: TeamJoinRequest = {
+      id: requestId,
+      teamId: targetTeam.id,
+      teamName: targetTeam.name,
+      ownerUid: targetTeam.ownerUid,
+      requesterUid: currentUser.uid,
+      requesterName: recruiterProfile?.name || currentUser.displayName || "Recruiter",
+      requesterEmail: currentUser.email || "",
+      requesterUsername: currentUsername,
+      status: "PENDING",
+      createdAt: new Date().toISOString(),
+    };
+
+    try {
+      await sendTeamJoinRequestToFirestore(req);
+      setSentRequestTeamIds((prev) => {
+        const next = new Set(prev);
+        next.add(targetTeam.id);
+        return next;
+      });
+      toast.success(`Join request sent to "${targetTeam.name}"! Waiting for owner's approval.`);
+    } catch (err) {
+      toast.error("Failed to send join request");
+    }
+  };
+
+  // Handler: Accept Request
+  const handleAcceptRequest = async (req: TeamJoinRequest) => {
+    try {
+      await updateTeamRequestStatusInFirestore(req.id, "ACCEPTED");
+
+      // Add requester as collaborator party in Firestore
+      const newParty: CollaboratorParty = {
+        id: `party-${req.requesterUid}-${Date.now()}`,
+        name: req.requesterName,
+        email: req.requesterEmail,
+        role: "Team Collaborator",
+        avatarInitial: req.requesterName.trim().charAt(0).toUpperCase() || "C",
+        avatarColorId: AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)],
+        permissions: {
+          canEditStatus: true,
+          canReschedule: true,
+          canEditNotes: true,
+          canDelete: false,
+          canExport: true,
+        },
+        createdAt: new Date().toISOString(),
+        addedBy: currentUser?.email || "Team Owner",
+      };
+
+      await savePartyToFirestore(newParty);
+
+      // Also update team members array
+      if (myTeam) {
+        const updatedMembers = [...(myTeam.members || []), newParty];
+        await saveTeamToFirestore({
+          ...myTeam,
+          members: updatedMembers,
+        });
+      }
+
+      onAddLog?.(
+        "PARTY_ADDED",
+        req.requesterName,
+        `Approved join request for ${req.requesterName} (${req.requesterEmail}) to join the team`,
+        {
+          glowColor: "emerald",
+          recruiterEmail: req.requesterEmail,
+          recruiterRole: "Team Collaborator",
+        }
+      );
+
+      onPartyUpdated?.();
+      toast.success(`Accepted ${req.requesterName}! They are now an active team member.`);
+    } catch (err) {
+      toast.error("Failed to accept request");
+    }
+  };
+
+  // Handler: Decline Request
+  const handleDeclineRequest = async (req: TeamJoinRequest) => {
+    try {
+      await updateTeamRequestStatusInFirestore(req.id, "REJECTED");
+      toast.info(`Declined request from ${req.requesterName}.`);
+    } catch (err) {
+      toast.error("Failed to decline request");
+    }
+  };
+
+  // Handler: Update Existing Member Permissions
   const handleUpdateExistingPartyPermission = async (
     party: CollaboratorParty,
     key: keyof PartyPermissions
@@ -113,536 +351,725 @@ export default function AddPartiesModal({
 
     try {
       await savePartyToFirestore(updatedParty);
+
+      // Update in team object as well
+      if (myTeam) {
+        const updatedMembers = (myTeam.members || []).map((m) =>
+          m.id === party.id ? updatedParty : m
+        );
+        saveTeamToFirestore({ ...myTeam, members: updatedMembers }).catch(() => {});
+      }
+
       toast.success(
         `Updated ${party.name}'s "${key}" permission to ${
           updatedPermissions[key] ? "Allowed" : "Disabled"
         }`
       );
-      onPartyUpdated?.();
+
       onAddLog?.(
         "PERMISSIONS_UPDATED",
         party.name,
-        `Permissions for ${party.name} (${party.email}) updated: ${key} = ${
-          updatedPermissions[key] ? "Allowed" : "Disabled"
-        }`,
+        `Updated ${key} to ${updatedPermissions[key] ? "ALLOWED" : "DENIED"} for collaborator ${party.name}`,
         {
+          fieldChanged: `Permission: ${key}`,
+          previousValue: party.permissions[key] ? "Allowed" : "Denied",
+          newValue: updatedPermissions[key] ? "Allowed" : "Denied",
           glowColor: "indigo",
-          recruiterEmail: currentUser?.email || "admin@talentflow.in",
-          recruiterName: recruiterProfile?.name || currentUser?.displayName || "Admin Recruiter",
+          partyId: party.id,
+          recruiterEmail: party.email,
         }
       );
-    } catch (e) {
-      toast.error("Failed to update party permission");
-    }
-  };
-
-  const handleAddParty = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim()) {
-      toast.error("Please enter collaborator party name");
-      return;
-    }
-    if (!email.trim() || !email.includes("@")) {
-      toast.error("Please enter a valid collaborator email address");
-      return;
-    }
-
-    const assignedRole = role === "Other" && customRole.trim() ? customRole.trim() : role;
-    const randomColor = AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];
-    const newParty: CollaboratorParty = {
-      id: `party-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-      name: name.trim(),
-      email: email.trim().toLowerCase(),
-      role: assignedRole,
-      avatarInitial: name.trim().charAt(0).toUpperCase(),
-      avatarColorId: randomColor,
-      permissions: { ...permissions },
-      createdAt: new Date().toISOString(),
-      addedBy: currentUser?.email || recruiterProfile?.name || "Admin Recruiter",
-    };
-
-    setIsSubmitting(true);
-    try {
-      await savePartyToFirestore(newParty);
-      toast.success(`Team party "${newParty.name}" added successfully!`);
-
-      onAddLog?.(
-        "PARTY_ADDED",
-        newParty.name,
-        `New collaborator party added: ${newParty.name} (${newParty.email}) as ${newParty.role}`,
-        {
-          glowColor: "emerald",
-          recruiterEmail: currentUser?.email || "admin@talentflow.in",
-          recruiterName: recruiterProfile?.name || currentUser?.displayName || "Admin Recruiter",
-        }
-      );
-
-      // Reset form
-      setName("");
-      setEmail("");
-      setRole(PRESET_ROLES[0]);
-      setCustomRole("");
-      setPermissions({
-        canEditStatus: true,
-        canReschedule: true,
-        canEditNotes: true,
-        canDelete: false,
-        canExport: true,
-      });
 
       onPartyUpdated?.();
     } catch (err) {
-      toast.error("Failed to save party to Firestore");
-    } finally {
-      setIsSubmitting(false);
+      toast.error("Failed to update permissions");
     }
   };
 
+  // Handler: Delete Member
   const handleDeleteParty = async (party: CollaboratorParty) => {
-    if (
-      !confirm(
-        `Are you sure you want to remove collaborator "${party.name}" (${party.email})?`
-      )
-    ) {
-      return;
-    }
+    if (!confirm(`Are you sure you want to remove "${party.name}" from your team?`)) return;
 
     try {
       await deletePartyFromFirestore(party.id);
       if (activeParty?.id === party.id) {
         onSetActiveParty(null);
       }
-      toast.info(`Removed collaborator "${party.name}"`);
+
+      if (myTeam) {
+        const updatedMembers = (myTeam.members || []).filter((m) => m.id !== party.id);
+        saveTeamToFirestore({ ...myTeam, members: updatedMembers }).catch(() => {});
+      }
+
       onAddLog?.(
         "PARTY_REMOVED",
         party.name,
-        `Collaborator party removed: ${party.name} (${party.email})`,
+        `Removed collaborator party: ${party.name} (${party.email})`,
         {
           glowColor: "rose",
-          recruiterEmail: currentUser?.email || "admin@talentflow.in",
-          recruiterName: recruiterProfile?.name || currentUser?.displayName || "Admin Recruiter",
+          recruiterEmail: party.email,
+          partyId: party.id,
         }
       );
+
+      toast.success(`Removed ${party.name} from team`);
       onPartyUpdated?.();
-    } catch (e) {
-      toast.error("Failed to remove collaborator party");
+    } catch (err) {
+      toast.error("Failed to remove party");
+    }
+  };
+
+  // Handler: Direct Add Party by email
+  const handleDirectAddSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim() || !email.trim()) {
+      toast.error("Please enter both Name and Email.");
+      return;
+    }
+
+    const effectiveRole = role === "Other / Custom Role" ? customRole.trim() || "Collaborator" : role;
+    setIsSubmitting(true);
+
+    const randomColor = AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)];
+    const newParty: CollaboratorParty = {
+      id: `party-${Date.now()}`,
+      name: name.trim(),
+      email: email.trim().toLowerCase(),
+      role: effectiveRole,
+      avatarInitial: name.trim().charAt(0).toUpperCase() || "C",
+      avatarColorId: randomColor,
+      permissions,
+      createdAt: new Date().toISOString(),
+      addedBy: currentUser?.email || "Team Owner",
+    };
+
+    try {
+      await savePartyToFirestore(newParty);
+      if (myTeam) {
+        const updatedMembers = [...(myTeam.members || []), newParty];
+        saveTeamToFirestore({ ...myTeam, members: updatedMembers }).catch(() => {});
+      }
+
+      onAddLog?.(
+        "PARTY_ADDED",
+        newParty.name,
+        `Added collaborator party: ${newParty.name} (${newParty.email}) with role "${effectiveRole}"`,
+        {
+          glowColor: "blue",
+          recruiterEmail: newParty.email,
+          recruiterRole: effectiveRole,
+          partyId: newParty.id,
+        }
+      );
+
+      toast.success(`Added ${newParty.name} to team!`);
+      setName("");
+      setEmail("");
+      setShowDirectAdd(false);
+      onPartyUpdated?.();
+    } catch (err) {
+      toast.error("Failed to add collaborator");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-ink/50 backdrop-blur-xs animate-in fade-in duration-200">
-      <div className="relative w-full max-w-2xl bg-canvas rounded-2xl border border-hairline shadow-level3 flex flex-col max-h-[92vh] overflow-hidden">
-        {/* Modal Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-hairline bg-canvas-soft">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-primary-subdued/80 border border-primary/20 flex items-center justify-center text-primary">
-              <Users className="w-4 h-4" />
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-ink/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fadeIn">
+      <div className="w-full max-w-3xl bg-canvas rounded-t-2xl sm:rounded-2xl border border-hairline shadow-level3 overflow-hidden max-h-[92vh] flex flex-col">
+        {/* Header */}
+        <div className="bg-canvas-soft border-b border-hairline px-4 sm:px-6 py-3.5 sm:py-4 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center shadow-2xs shrink-0">
+              <Users className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-base font-semibold text-ink leading-tight flex items-center gap-2">
-                <span>Team Collaboration & Party Permissions</span>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
-                  {parties.length} Parties Active
-                </span>
-              </h2>
-              <p className="text-xs text-ink-mute">
-                Add team members and set custom permission toggles for candidate edits
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm sm:text-base font-bold text-ink">
+                  Team Collaboration &amp; Parties
+                </h2>
+                {myTeam && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">
+                    {myTeam.name}
+                  </span>
+                )}
+              </div>
+              <p className="text-[11px] sm:text-xs text-ink-mute">
+                Connect teams, search by username or team name, manage join requests &amp; assign custom permissions
               </p>
             </div>
           </div>
+
+          <button
+            onClick={onClose}
+            className="p-1.5 rounded-lg text-ink-mute hover:text-ink hover:bg-hairline transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Tab Navigation Strip */}
+        <div className="bg-canvas border-b border-hairline px-4 sm:px-6 flex items-center gap-2 overflow-x-auto no-scrollbar shrink-0">
+          {/* Tab 1: My Team */}
           <button
             type="button"
-            onClick={onClose}
-            className="p-1.5 rounded-lg text-ink-mute hover:text-ink hover:bg-canvas transition-colors"
+            onClick={() => setActiveTab("MY_TEAM")}
+            className={`py-3 px-3.5 text-xs font-semibold border-b-2 transition-all flex items-center gap-2 shrink-0 ${
+              activeTab === "MY_TEAM"
+                ? "border-primary text-primary"
+                : "border-transparent text-ink-mute hover:text-ink"
+            }`}
           >
-            <X className="w-4 h-4" />
+            <Crown className="w-3.5 h-3.5" />
+            <span>My Team &amp; Permissions</span>
+            {parties.length > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-canvas-soft border border-hairline text-ink">
+                {parties.length}
+              </span>
+            )}
+          </button>
+
+          {/* Tab 2: Google Search Style Team / User Finder */}
+          <button
+            type="button"
+            onClick={() => setActiveTab("SEARCH")}
+            className={`py-3 px-3.5 text-xs font-semibold border-b-2 transition-all flex items-center gap-2 shrink-0 ${
+              activeTab === "SEARCH"
+                ? "border-primary text-primary"
+                : "border-transparent text-ink-mute hover:text-ink"
+            }`}
+          >
+            <Search className="w-3.5 h-3.5" />
+            <span>Search Teams &amp; Users</span>
+          </button>
+
+          {/* Tab 3: Join Requests */}
+          <button
+            type="button"
+            onClick={() => setActiveTab("REQUESTS")}
+            className={`py-3 px-3.5 text-xs font-semibold border-b-2 transition-all flex items-center gap-2 shrink-0 ${
+              activeTab === "REQUESTS"
+                ? "border-primary text-primary"
+                : "border-transparent text-ink-mute hover:text-ink"
+            }`}
+          >
+            <Clock className="w-3.5 h-3.5" />
+            <span>Join Requests</span>
+            {incomingRequests.length > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-amber-500 text-white animate-pulse">
+                {incomingRequests.length}
+              </span>
+            )}
           </button>
         </div>
 
         {/* Modal Body */}
-        <div className="p-5 overflow-y-auto space-y-6 flex-1 text-ink">
-          {/* Working Identity Switcher Notification */}
-          <div className="p-3 rounded-xl bg-canvas-soft border border-hairline flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2.5">
-            <div className="flex items-center gap-2">
-              <UserCheck className="w-4 h-4 text-emerald-600 shrink-0" />
-              <div className="text-xs">
-                <span className="font-semibold text-ink">Active Operating Identity: </span>
-                <span className="text-ink-secondary">
-                  {activeParty
-                    ? `${activeParty.name} (${activeParty.email}) — ${activeParty.role}`
-                    : `${recruiterProfile?.name || currentUser?.displayName || "Primary Recruiter"} (${
-                        currentUser?.email || "Admin"
-                      })`}
-                </span>
-              </div>
-            </div>
-            {activeParty && (
-              <button
-                type="button"
-                onClick={() => onSetActiveParty(null)}
-                className="text-[11px] font-semibold text-primary hover:underline"
-              >
-                Reset to Primary Admin
-              </button>
-            )}
-          </div>
+        <div className="p-4 sm:p-6 overflow-y-auto flex-1 space-y-5">
+          {/* TAB 1: MY TEAM & PERMISSIONS */}
+          {activeTab === "MY_TEAM" && (
+            <div className="space-y-5">
+              {/* Team Setup or Status Card */}
+              {!myTeam ? (
+                <div className="p-5 rounded-2xl bg-primary/5 border border-primary/20 space-y-4">
+                  <div className="flex items-center gap-2.5">
+                    <Sparkles className="w-5 h-5 text-primary" />
+                    <div>
+                      <h3 className="text-sm font-bold text-ink">Create Your Team</h3>
+                      <p className="text-xs text-ink-mute">
+                        Create a named team so other recruiters &amp; interviewers can search for you by Team Name or your username ({currentUsername})
+                      </p>
+                    </div>
+                  </div>
 
-          {/* FORM: ADD NEW PARTY */}
-          <form
-            onSubmit={handleAddParty}
-            className="p-4 rounded-xl border border-hairline bg-canvas space-y-4 shadow-2xs"
-          >
-            <div className="flex items-center gap-2 text-xs font-bold text-ink uppercase tracking-wider">
-              <UserPlus className="w-3.5 h-3.5 text-primary" />
-              <span>1. Add New Collaborator Party</span>
-            </div>
+                  <form onSubmit={handleSaveTeam} className="space-y-3 pt-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs font-medium text-ink block mb-1">
+                          Team Name *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. Arigato Talent Squad"
+                          value={teamNameInput}
+                          onChange={(e) => setTeamNameInput(e.target.value)}
+                          className="w-full text-xs px-3 py-2.5 rounded-xl border border-hairline-input bg-canvas text-ink focus:outline-none focus:border-primary"
+                        />
+                      </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="text-[11px] font-medium text-ink block mb-1">
-                  Full Name *
-                </label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Priya Sharma"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="w-full h-9 px-3 text-xs rounded-lg border border-hairline bg-canvas focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                />
-              </div>
+                      <div>
+                        <label className="text-xs font-medium text-ink block mb-1">
+                          Your Username (Searchable)
+                        </label>
+                        <div className="w-full text-xs px-3 py-2.5 rounded-xl border border-hairline bg-canvas-soft text-ink-mute font-mono flex items-center justify-between">
+                          <span>{currentUsername}</span>
+                          <span className="text-[10px] text-primary font-bold">Owner</span>
+                        </div>
+                      </div>
+                    </div>
 
-              <div>
-                <label className="text-[11px] font-medium text-ink block mb-1">
-                  Email Address *
-                </label>
-                <input
-                  type="email"
-                  required
-                  placeholder="e.g. priya.sharma@company.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full h-9 px-3 text-xs rounded-lg border border-hairline bg-canvas focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                />
-              </div>
-            </div>
+                    <div className="flex items-center justify-between pt-1">
+                      <label className="flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={isPublicTeam}
+                          onChange={(e) => setIsPublicTeam(e.target.checked)}
+                          className="w-4 h-4 rounded text-primary border-hairline focus:ring-primary"
+                        />
+                        <span className="text-xs text-ink">
+                          <strong>Open for Public Search</strong> — Anyone can search and send join requests
+                        </span>
+                      </label>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="text-[11px] font-medium text-ink block mb-1">
-                  Role / Title
-                </label>
-                <select
-                  value={role}
-                  onChange={(e) => setRole(e.target.value)}
-                  className="w-full h-9 px-3 text-xs rounded-lg border border-hairline bg-canvas focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                >
-                  {PRESET_ROLES.map((r) => (
-                    <option key={r} value={r}>
-                      {r}
-                    </option>
-                  ))}
-                  <option value="Other">Other (Specify below)</option>
-                </select>
-              </div>
+                      <button
+                        type="submit"
+                        disabled={isCreatingTeam}
+                        className="btn-primary-pill text-xs px-4 py-2 inline-flex items-center gap-1.5 shadow-xs"
+                      >
+                        {isCreatingTeam ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <Plus className="w-3.5 h-3.5" />
+                        )}
+                        <span>Create Team</span>
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              ) : (
+                <div className="p-4 rounded-xl bg-canvas-soft border border-hairline flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-bold text-sm text-ink">{myTeam.name}</span>
+                      <span className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-primary/10 text-primary font-semibold">
+                        {myTeam.ownerUsername}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={handleTogglePublic}
+                        className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border flex items-center gap-1 transition-colors ${
+                          isPublicTeam
+                            ? "bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100"
+                            : "bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200"
+                        }`}
+                      >
+                        {isPublicTeam ? <Globe className="w-3 h-3" /> : <Lock className="w-3 h-3" />}
+                        <span>{isPublicTeam ? "Public Team (Searchable)" : "Private Team"}</span>
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-ink-mute">
+                      Owner: {myTeam.ownerName} • {parties.length} active collaborator{parties.length === 1 ? "" : "s"}
+                    </p>
+                  </div>
 
-              {role === "Other" && (
-                <div>
-                  <label className="text-[11px] font-medium text-ink block mb-1">
-                    Custom Role Name
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. VP of Operations"
-                    value={customRole}
-                    onChange={(e) => setCustomRole(e.target.value)}
-                    className="w-full h-9 px-3 text-xs rounded-lg border border-hairline bg-canvas focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary"
-                  />
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setShowDirectAdd((v) => !v)}
+                      className="btn-secondary-pill text-xs py-1.5 px-3 inline-flex items-center gap-1.5"
+                    >
+                      <UserPlus className="w-3.5 h-3.5 text-primary" />
+                      <span>{showDirectAdd ? "Close Form" : "+ Direct Add"}</span>
+                    </button>
+                  </div>
                 </div>
               )}
-            </div>
 
-            {/* Granular Permission Toggles */}
-            <div className="pt-2 border-t border-hairline space-y-2">
-              <label className="text-[11px] font-semibold text-ink flex items-center justify-between">
-                <span>Configure Permissions for this Party:</span>
-                <span className="text-[10px] text-ink-mute font-normal">
-                  Toggle on/off as needed
-                </span>
-              </label>
+              {/* Direct Add Collapsible Form */}
+              {showDirectAdd && (
+                <form onSubmit={handleDirectAddSubmit} className="p-4 rounded-xl bg-canvas border border-primary/30 shadow-level1 space-y-3">
+                  <h4 className="text-xs font-bold text-ink flex items-center gap-1.5">
+                    <UserPlus className="w-4 h-4 text-primary" />
+                    <span>Directly Add Collaborator by Email</span>
+                  </h4>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                {/* Status Toggle */}
-                <label className="flex items-center justify-between p-2 rounded-lg border border-hairline bg-canvas-soft hover:bg-canvas transition-colors cursor-pointer">
-                  <span className="text-[11px] font-medium text-ink">
-                    Allow Pipeline Status Changes
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={permissions.canEditStatus}
-                    onChange={() => handleTogglePermission("canEditStatus")}
-                    className="w-4 h-4 text-primary rounded border-hairline focus:ring-primary"
-                  />
-                </label>
-
-                {/* Reschedule Toggle */}
-                <label className="flex items-center justify-between p-2 rounded-lg border border-hairline bg-canvas-soft hover:bg-canvas transition-colors cursor-pointer">
-                  <span className="text-[11px] font-medium text-ink">
-                    Allow Interview Rescheduling
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={permissions.canReschedule}
-                    onChange={() => handleTogglePermission("canReschedule")}
-                    className="w-4 h-4 text-primary rounded border-hairline focus:ring-primary"
-                  />
-                </label>
-
-                {/* Notes Toggle */}
-                <label className="flex items-center justify-between p-2 rounded-lg border border-hairline bg-canvas-soft hover:bg-canvas transition-colors cursor-pointer">
-                  <span className="text-[11px] font-medium text-ink">
-                    Allow Notes & Feedback Edits
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={permissions.canEditNotes}
-                    onChange={() => handleTogglePermission("canEditNotes")}
-                    className="w-4 h-4 text-primary rounded border-hairline focus:ring-primary"
-                  />
-                </label>
-
-                {/* Delete Toggle */}
-                <label className="flex items-center justify-between p-2 rounded-lg border border-hairline bg-canvas-soft hover:bg-canvas transition-colors cursor-pointer">
-                  <span className="text-[11px] font-medium text-rose-700">
-                    Allow Candidate Deletion
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={permissions.canDelete}
-                    onChange={() => handleTogglePermission("canDelete")}
-                    className="w-4 h-4 text-rose-600 rounded border-hairline focus:ring-rose-500"
-                  />
-                </label>
-
-                {/* Export Toggle */}
-                <label className="flex items-center justify-between p-2 rounded-lg border border-hairline bg-canvas-soft hover:bg-canvas transition-colors cursor-pointer sm:col-span-2">
-                  <span className="text-[11px] font-medium text-ink">
-                    Allow Candidate Export (.xlsx / JSON)
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={permissions.canExport}
-                    onChange={() => handleTogglePermission("canExport")}
-                    className="w-4 h-4 text-primary rounded border-hairline focus:ring-primary"
-                  />
-                </label>
-              </div>
-            </div>
-
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="w-full btn-primary-pill text-xs py-2 flex items-center justify-center gap-1.5 shadow-2xs font-semibold"
-            >
-              <UserPlus className="w-3.5 h-3.5" />
-              <span>{isSubmitting ? "Adding Party..." : "Add Party to Team"}</span>
-            </button>
-          </form>
-
-          {/* LIST OF EXISTING PARTIES */}
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-bold text-ink uppercase tracking-wider flex items-center gap-1.5">
-                <Users className="w-3.5 h-3.5 text-primary" />
-                <span>2. Existing Team Collaborators ({parties.length})</span>
-              </span>
-              <span className="text-[10px] text-ink-mute">
-                Changes persist live in Cloud Firestore
-              </span>
-            </div>
-
-            {parties.length === 0 ? (
-              <div className="text-center py-6 px-4 rounded-xl border border-dashed border-hairline bg-canvas-soft">
-                <Users className="w-8 h-8 text-ink-mute mx-auto mb-2 opacity-50" />
-                <p className="text-xs font-semibold text-ink">No Collaborator Parties Added</p>
-                <p className="text-[11px] text-ink-mute mt-0.5">
-                  Add team members above so they can review candidates and record feedback
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-2.5">
-                {parties.map((p) => {
-                  const isCurrentActive = activeParty?.id === p.id;
-                  return (
-                    <div
-                      key={p.id}
-                      className={`p-3.5 rounded-xl border transition-all ${
-                        isCurrentActive
-                          ? "bg-primary-subdued/30 border-primary shadow-xs ring-1 ring-primary/40"
-                          : "bg-canvas border-hairline hover:border-slate-300"
-                      }`}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                    <input
+                      type="text"
+                      required
+                      placeholder="Full Name (e.g. Priya Sharma)"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className="text-xs px-3 py-2 rounded-lg border border-hairline-input bg-canvas text-ink focus:outline-none focus:border-primary"
+                    />
+                    <input
+                      type="email"
+                      required
+                      placeholder="Email Address"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="text-xs px-3 py-2 rounded-lg border border-hairline-input bg-canvas text-ink focus:outline-none focus:border-primary"
+                    />
+                    <select
+                      value={role}
+                      onChange={(e) => setRole(e.target.value)}
+                      className="text-xs px-3 py-2 rounded-lg border border-hairline-input bg-canvas text-ink focus:outline-none focus:border-primary"
                     >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <CursiveAvatar
-                            initial={p.avatarInitial || p.name.charAt(0)}
-                            colorId={p.avatarColorId || "lavender"}
-                            size="md"
-                            className="shrink-0"
-                          />
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs font-bold text-ink truncate">
-                                {p.name}
-                              </span>
-                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200">
-                                {p.role}
-                              </span>
-                              {isCurrentActive && (
-                                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
-                                  Active Identity
-                                </span>
-                              )}
+                      {PRESET_ROLES.map((r) => (
+                        <option key={r} value={r}>
+                          {r}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => setShowDirectAdd(false)}
+                      className="text-xs text-ink-mute hover:text-ink px-3 py-1.5"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isSubmitting}
+                      className="btn-primary-pill text-xs py-1.5 px-4 inline-flex items-center gap-1"
+                    >
+                      {isSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
+                      <span>Add Member</span>
+                    </button>
+                  </div>
+                </form>
+              )}
+
+              {/* Members List with Permissions Toggles */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between pb-2 border-b border-hairline">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-ink flex items-center gap-2">
+                    <Users className="w-4 h-4 text-primary" />
+                    <span>Team Collaborators ({parties.length})</span>
+                  </h3>
+                  <span className="text-[11px] text-ink-mute">
+                    Toggle individual permissions for each collaborator
+                  </span>
+                </div>
+
+                {parties.length === 0 ? (
+                  <div className="text-center py-8 bg-canvas-soft/60 rounded-xl border border-hairline space-y-2">
+                    <Users className="w-8 h-8 text-ink-mute mx-auto stroke-1" />
+                    <p className="text-xs font-medium text-ink">No collaborators added yet</p>
+                    <p className="text-[11px] text-ink-mute max-w-sm mx-auto">
+                      Share your team name &ldquo;{myTeam?.name || "TalentFlow"}&rdquo; or username ({currentUsername}) with colleagues so they can search and join, or click <strong>+ Direct Add</strong> above.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {parties.map((party) => {
+                      const isActive = activeParty?.id === party.id;
+                      return (
+                        <div
+                          key={party.id}
+                          className={`p-4 rounded-xl border transition-all ${
+                            isActive
+                              ? "bg-primary-subdued/20 border-primary/40 shadow-xs"
+                              : "bg-canvas border-hairline hover:border-primary/30"
+                          }`}
+                        >
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-hairline/60">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <CursiveAvatar
+                                initial={party.avatarInitial || party.name.charAt(0)}
+                                colorId={party.avatarColorId || "lavender"}
+                                size="md"
+                                className="shrink-0"
+                              />
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <h4 className="text-xs font-bold text-ink truncate">{party.name}</h4>
+                                  <span className="text-[10px] px-2 py-0.2 rounded-full bg-canvas-soft border border-hairline text-ink-secondary">
+                                    {party.role}
+                                  </span>
+                                </div>
+                                <p className="text-[11px] text-ink-mute truncate flex items-center gap-1 mt-0.5">
+                                  <Mail className="w-3 h-3" />
+                                  <span>{party.email}</span>
+                                </p>
+                              </div>
                             </div>
-                            <div className="text-[11px] text-ink-secondary truncate flex items-center gap-1.5 mt-0.5">
-                              <Mail className="w-3 h-3 text-ink-mute" />
-                              <span>{p.email}</span>
+
+                            <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                              {isActive ? (
+                                <button
+                                  type="button"
+                                  onClick={() => onSetActiveParty(null)}
+                                  className="text-[11px] font-semibold px-2.5 py-1 rounded-md bg-primary text-white flex items-center gap-1 shadow-2xs"
+                                  title="Currently operating as this collaborator"
+                                >
+                                  <Check className="w-3 h-3" />
+                                  <span>Active Identity</span>
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => onSetActiveParty(party)}
+                                  className="text-[11px] font-semibold px-2.5 py-1 rounded-md bg-canvas-soft hover:bg-primary/10 text-ink-secondary hover:text-primary border border-hairline transition-colors"
+                                  title="Switch to work under this collaborator's name"
+                                >
+                                  Switch To
+                                </button>
+                              )}
+
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteParty(party)}
+                                className="p-1.5 rounded-md text-ink-mute hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                                title="Remove collaborator"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Permission Toggles */}
+                          <div className="pt-3">
+                            <span className="text-[10px] font-bold uppercase tracking-wider text-ink-mute block mb-2">
+                              Configured Permissions:
+                            </span>
+                            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                              {[
+                                { key: "canEditStatus" as const, label: "Edit Status" },
+                                { key: "canReschedule" as const, label: "Reschedule" },
+                                { key: "canEditNotes" as const, label: "Edit Notes" },
+                                { key: "canDelete" as const, label: "Delete", danger: true },
+                                { key: "canExport" as const, label: "Export" },
+                              ].map(({ key, label, danger }) => {
+                                const allowed = !!party.permissions[key];
+                                return (
+                                  <button
+                                    key={key}
+                                    type="button"
+                                    onClick={() => handleUpdateExistingPartyPermission(party, key)}
+                                    className={`px-2.5 py-1.5 rounded-lg text-[11px] font-medium border flex items-center justify-between gap-1 transition-all ${
+                                      allowed
+                                        ? danger
+                                          ? "bg-rose-50 text-rose-700 border-rose-200"
+                                          : "bg-emerald-50 text-emerald-700 border-emerald-200"
+                                        : "bg-canvas-soft text-ink-mute border-hairline line-through opacity-70"
+                                    }`}
+                                    title={`Click to ${allowed ? "revoke" : "grant"} permission`}
+                                  >
+                                    <span>{label}</span>
+                                    {allowed ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
+                                  </button>
+                                );
+                              })}
                             </div>
                           </div>
                         </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
-                        <div className="flex items-center gap-2 shrink-0">
-                          <button
-                            type="button"
-                            onClick={() =>
-                              onSetActiveParty(isCurrentActive ? null : p)
-                            }
-                            className={`text-[11px] px-2.5 py-1 rounded-lg border font-semibold transition-all ${
-                              isCurrentActive
-                                ? "bg-emerald-50 text-emerald-700 border-emerald-300"
-                                : "bg-canvas-soft hover:bg-canvas text-ink border-hairline"
-                            }`}
-                            title="Operate as this user so edits are stamped with their name & email"
-                          >
-                            {isCurrentActive ? "Active" : "Switch To"}
-                          </button>
+          {/* TAB 2: GOOGLE SEARCH STYLE FINDER */}
+          {activeTab === "SEARCH" && (
+            <div className="space-y-4">
+              {/* Google Search Bar Box */}
+              <div className="relative">
+                <div className="w-full flex items-center bg-canvas border border-hairline-input rounded-2xl shadow-level1 px-4 py-3 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20 transition-all">
+                  <Search className="w-5 h-5 text-primary mr-3 shrink-0" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search by Team Name (e.g. Arigato) or Username (e.g. @devanshu)..."
+                    className="w-full text-sm bg-transparent text-ink placeholder:text-ink-mute focus:outline-none"
+                    autoFocus
+                  />
+                  {searchQuery && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchQuery("")}
+                      className="p-1 rounded-full text-ink-mute hover:text-ink hover:bg-canvas-soft"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
 
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteParty(p)}
-                            className="p-1.5 rounded-lg text-ink-mute hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                            title="Remove collaborator"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
+                <div className="flex items-center justify-between text-[11px] text-ink-mute px-2 pt-1.5">
+                  <span>Search public recruitment teams or recruiter handles across the organization</span>
+                  {isSearching && (
+                    <span className="flex items-center gap-1 text-primary">
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      Searching...
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Search Results (Google-Style Cards) */}
+              <div className="space-y-3 pt-2">
+                {searchQuery.trim() === "" ? (
+                  <div className="text-center py-12 bg-canvas-soft/40 rounded-2xl border border-hairline space-y-2">
+                    <Search className="w-10 h-10 text-primary/40 mx-auto stroke-1" />
+                    <h4 className="text-sm font-bold text-ink">Find Teams &amp; Recruiters</h4>
+                    <p className="text-xs text-ink-mute max-w-sm mx-auto">
+                      Type any part of a team name or recruiter username above to discover public teams and request to join.
+                    </p>
+                  </div>
+                ) : searchResults.length === 0 && !isSearching ? (
+                  <div className="text-center py-10 bg-canvas-soft/40 rounded-2xl border border-hairline space-y-2">
+                    <p className="text-sm font-semibold text-ink">No teams found matching &ldquo;{searchQuery}&rdquo;</p>
+                    <p className="text-xs text-ink-mute">
+                      Make sure the team owner has enabled <strong>Open for Public Search</strong> or check spelling.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <span className="text-[11px] font-semibold text-ink-mute uppercase tracking-wider block">
+                      Search Results ({searchResults.length}):
+                    </span>
+
+                    {searchResults.map((team) => {
+                      const isOwnTeam = currentUser && team.ownerUid === currentUser.uid;
+                      const hasSent = sentRequestTeamIds.has(team.id);
+                      const isAlreadyMember =
+                        currentUser &&
+                        (team.members || []).some((m) => m.email.toLowerCase() === currentUser.email?.toLowerCase());
+
+                      return (
+                        <div
+                          key={team.id}
+                          className="p-4 rounded-xl bg-canvas border border-hairline hover:border-primary/40 transition-all shadow-level1 flex flex-col sm:flex-row sm:items-center justify-between gap-3 group"
+                        >
+                          <div className="space-y-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className="text-sm font-bold text-ink group-hover:text-primary transition-colors">
+                                {team.name}
+                              </h4>
+                              <span className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-primary/10 text-primary font-semibold">
+                                {team.ownerUsername}
+                              </span>
+                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center gap-1">
+                                <Globe className="w-2.5 h-2.5" />
+                                Public
+                              </span>
+                            </div>
+
+                            <p className="text-xs text-ink-mute">
+                              Created by {team.ownerName} • {(team.members || []).length} member{(team.members || []).length === 1 ? "" : "s"}
+                            </p>
+                          </div>
+
+                          <div className="shrink-0 self-end sm:self-center">
+                            {isOwnTeam ? (
+                              <span className="text-xs font-bold text-primary px-3 py-1.5 rounded-lg bg-primary/10 border border-primary/20 inline-flex items-center gap-1">
+                                <Crown className="w-3.5 h-3.5" />
+                                Your Team
+                              </span>
+                            ) : isAlreadyMember ? (
+                              <span className="text-xs font-bold text-emerald-700 px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 inline-flex items-center gap-1">
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                Joined
+                              </span>
+                            ) : hasSent ? (
+                              <span className="text-xs font-semibold text-amber-700 px-3 py-1.5 rounded-lg bg-amber-50 border border-amber-200 inline-flex items-center gap-1">
+                                <Clock className="w-3.5 h-3.5" />
+                                Request Pending
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleSendJoinRequest(team)}
+                                className="btn-primary-pill text-xs py-1.5 px-3.5 inline-flex items-center gap-1.5 shadow-xs"
+                              >
+                                <Send className="w-3.5 h-3.5" />
+                                <span>Send Request</span>
+                              </button>
+                            )}
+                          </div>
                         </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 3: INCOMING JOIN REQUESTS */}
+          {activeTab === "REQUESTS" && (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between pb-2 border-b border-hairline">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-ink flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-amber-600" />
+                  <span>Incoming Join Requests ({incomingRequests.length})</span>
+                </h3>
+                <span className="text-[11px] text-ink-mute">
+                  Recruiters requesting to join your team
+                </span>
+              </div>
+
+              {incomingRequests.length === 0 ? (
+                <div className="text-center py-10 bg-canvas-soft/40 rounded-2xl border border-hairline space-y-2">
+                  <CheckCircle2 className="w-8 h-8 text-emerald-500 mx-auto" />
+                  <p className="text-xs font-semibold text-ink">All caught up!</p>
+                  <p className="text-[11px] text-ink-mute">
+                    No pending join requests for your team at the moment.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {incomingRequests.map((req) => (
+                    <div
+                      key={req.id}
+                      className="p-4 rounded-xl bg-canvas border border-amber-200/80 shadow-level1 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                    >
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-xs font-bold text-ink">{req.requesterName}</h4>
+                          {req.requesterUsername && (
+                            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-canvas-soft text-ink-mute">
+                              {req.requesterUsername}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-ink-mute flex items-center gap-1">
+                          <Mail className="w-3 h-3" />
+                          <span>{req.requesterEmail}</span>
+                        </p>
+                        <span className="text-[10px] text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200 inline-block mt-1">
+                          Requested to join &ldquo;{req.teamName}&rdquo;
+                        </span>
                       </div>
 
-                      {/* Interactive Permission Toggles for this existing party */}
-                      <div className="mt-3 pt-2.5 border-t border-hairline flex flex-wrap items-center gap-1.5">
-                        <span className="text-[10px] font-semibold text-ink-mute mr-1">
-                          Permissions:
-                        </span>
-
-                        {/* Status Toggle */}
+                      <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
                         <button
                           type="button"
-                          onClick={() =>
-                            handleUpdateExistingPartyPermission(p, "canEditStatus")
-                          }
-                          className={`text-[10px] px-2 py-0.5 rounded-md border font-medium flex items-center gap-1 transition-all ${
-                            p.permissions.canEditStatus
-                              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                              : "bg-slate-100 text-slate-400 border-slate-200 line-through"
-                          }`}
-                          title="Click to toggle status change permission"
+                          onClick={() => handleAcceptRequest(req)}
+                          className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold flex items-center gap-1 shadow-2xs transition-colors"
                         >
-                          <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                          <span>Status Change</span>
+                          <Check className="w-3.5 h-3.5" />
+                          <span>Accept</span>
                         </button>
-
-                        {/* Reschedule Toggle */}
                         <button
                           type="button"
-                          onClick={() =>
-                            handleUpdateExistingPartyPermission(p, "canReschedule")
-                          }
-                          className={`text-[10px] px-2 py-0.5 rounded-md border font-medium flex items-center gap-1 transition-all ${
-                            p.permissions.canReschedule
-                              ? "bg-blue-50 text-blue-700 border-blue-200"
-                              : "bg-slate-100 text-slate-400 border-slate-200 line-through"
-                          }`}
-                          title="Click to toggle reschedule permission"
+                          onClick={() => handleDeclineRequest(req)}
+                          className="px-3 py-1.5 rounded-xl border border-rose-200 text-rose-600 hover:bg-rose-50 text-xs font-semibold flex items-center gap-1 transition-colors"
                         >
-                          <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                          <span>Reschedule</span>
-                        </button>
-
-                        {/* Notes Toggle */}
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleUpdateExistingPartyPermission(p, "canEditNotes")
-                          }
-                          className={`text-[10px] px-2 py-0.5 rounded-md border font-medium flex items-center gap-1 transition-all ${
-                            p.permissions.canEditNotes
-                              ? "bg-purple-50 text-purple-700 border-purple-200"
-                              : "bg-slate-100 text-slate-400 border-slate-200 line-through"
-                          }`}
-                          title="Click to toggle notes permission"
-                        >
-                          <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                          <span>Notes & Feedback</span>
-                        </button>
-
-                        {/* Delete Toggle */}
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleUpdateExistingPartyPermission(p, "canDelete")
-                          }
-                          className={`text-[10px] px-2 py-0.5 rounded-md border font-medium flex items-center gap-1 transition-all ${
-                            p.permissions.canDelete
-                              ? "bg-rose-50 text-rose-700 border-rose-200"
-                              : "bg-slate-100 text-slate-400 border-slate-200 line-through"
-                          }`}
-                          title="Click to toggle delete permission"
-                        >
-                          <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                          <span>Delete</span>
-                        </button>
-
-                        {/* Export Toggle */}
-                        <button
-                          type="button"
-                          onClick={() =>
-                            handleUpdateExistingPartyPermission(p, "canExport")
-                          }
-                          className={`text-[10px] px-2 py-0.5 rounded-md border font-medium flex items-center gap-1 transition-all ${
-                            p.permissions.canExport
-                              ? "bg-amber-50 text-amber-700 border-amber-200"
-                              : "bg-slate-100 text-slate-400 border-slate-200 line-through"
-                          }`}
-                          title="Click to toggle export permission"
-                        >
-                          <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                          <span>Export</span>
+                          <X className="w-3.5 h-3.5" />
+                          <span>Decline</span>
                         </button>
                       </div>
                     </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
-        {/* Modal Footer */}
-        <div className="shrink-0 bg-canvas-soft border-t border-hairline px-5 py-3 flex items-center justify-between">
-          <span className="text-[11px] text-ink-mute flex items-center gap-1.5">
+        {/* Footer */}
+        <div className="shrink-0 bg-canvas-soft border-t border-hairline px-4 sm:px-6 py-3 flex items-center justify-between text-xs text-ink-mute safe-bottom">
+          <div className="flex items-center gap-1.5">
             <Shield className="w-3.5 h-3.5 text-primary" />
-            <span>Every edit by a party is recorded in Activity Logs</span>
-          </span>
+            <span>Changes persist live in Cloud Firestore</span>
+          </div>
           <button
             type="button"
             onClick={onClose}

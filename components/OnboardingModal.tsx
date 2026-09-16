@@ -12,16 +12,19 @@ import {
   Loader2,
   Palette,
   Layers,
+  Lock,
+  Shield,
 } from "lucide-react";
 import { toast } from "sonner";
 import { User } from "firebase/auth";
-import { RecruiterProfile } from "@/lib/types";
+import { RecruiterProfile, AppSettings } from "@/lib/types";
 import {
   ALPHABETS,
   LIGHT_COLORS,
   getColorOption,
 } from "@/lib/avatar-constants";
 import CursiveAvatar from "./CursiveAvatar";
+import SecurityPinModal from "./SecurityPinModal";
 
 interface OnboardingModalProps {
   isOpen: boolean;
@@ -29,6 +32,7 @@ interface OnboardingModalProps {
   currentUser: User | null;
   existingProfile?: RecruiterProfile | null;
   onSaveProfile: (profile: RecruiterProfile) => void;
+  settings?: AppSettings;
 }
 
 const GENDER_OPTIONS = [
@@ -44,13 +48,18 @@ export default function OnboardingModal({
   currentUser,
   existingProfile,
   onSaveProfile,
+  settings,
 }: OnboardingModalProps) {
+  // Lock state: existing profiles are locked by default until PIN entered; new profiles are unlocked
+  const [isUnlocked, setIsUnlocked] = useState(!existingProfile?.completedOnboarding);
+  const [isPinModalOpen, setIsPinModalOpen] = useState(false);
   // Default values
   const defaultInitial = currentUser?.displayName
     ? currentUser.displayName.trim().charAt(0).toUpperCase()
     : "K";
 
   const [name, setName] = useState("");
+  const [username, setUsername] = useState("");
   const [age, setAge] = useState<string>("");
   const [gender, setGender] = useState<string>("Male");
   const [company, setCompany] = useState<string>("");
@@ -61,10 +70,15 @@ export default function OnboardingModal({
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
+  // Auto-generate username from name
+  const autoUsername = (n: string) =>
+    "@" + n.trim().toLowerCase().replace(/\s+/g, "").replace(/[^a-z0-9_]/g, "");
+
   // Sync with current user or existing profile
   useEffect(() => {
     if (existingProfile) {
       setName(existingProfile.name || currentUser?.displayName || "");
+      setUsername(existingProfile.username || autoUsername(existingProfile.name || currentUser?.displayName || ""));
       setAge(existingProfile.age ? String(existingProfile.age) : "");
       setGender(existingProfile.gender || "Male");
       setCompany(existingProfile.company || "");
@@ -73,6 +87,7 @@ export default function OnboardingModal({
       setAvatarColorId(existingProfile.avatarColorId || "lavender");
     } else if (currentUser) {
       setName(currentUser.displayName || "");
+      setUsername(autoUsername(currentUser.displayName || ""));
       setCompany("Arigato Labs");
       setPosition("Talent Acquisition Specialist");
       setAvatarInitial(defaultInitial);
@@ -80,10 +95,22 @@ export default function OnboardingModal({
     }
   }, [existingProfile, currentUser, defaultInitial]);
 
+  // Sync unlock state on modal open
+  useEffect(() => {
+    if (isOpen) {
+      setIsUnlocked(!existingProfile?.completedOnboarding);
+      setIsPinModalOpen(false);
+    }
+  }, [isOpen, existingProfile]);
+
   if (!isOpen) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isUnlocked && existingProfile?.completedOnboarding) {
+      setIsPinModalOpen(true);
+      return;
+    }
     setErrorMsg("");
 
     if (!name.trim() || name.trim().length < 2) {
@@ -106,6 +133,7 @@ export default function OnboardingModal({
     const profile: RecruiterProfile = {
       uid: currentUser?.uid || "guest_recruiter",
       name: name.trim(),
+      username: username.startsWith("@") ? username : `@${username}`,
       age: age ? parseInt(age) : null,
       gender,
       company: company.trim(),
@@ -152,19 +180,63 @@ export default function OnboardingModal({
             </div>
           </div>
 
-          {existingProfile?.completedOnboarding && (
-            <button
-              onClick={onClose}
-              className="p-1.5 rounded-md text-ink-mute hover:text-ink hover:bg-hairline transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {existingProfile?.completedOnboarding && (
+              isUnlocked ? (
+                <button
+                  type="button"
+                  onClick={() => setIsUnlocked(false)}
+                  className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-emerald-50 text-emerald-700 border border-emerald-200 inline-flex items-center gap-1.5 hover:bg-emerald-100 transition-colors shadow-2xs"
+                  title="Click to lock fields"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Editing Unlocked</span>
+                  <span className="sm:hidden">Unlocked</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setIsPinModalOpen(true)}
+                  className="text-xs font-semibold px-2.5 py-1.5 rounded-lg bg-amber-50 text-amber-700 border border-amber-200 inline-flex items-center gap-1.5 hover:bg-amber-100 transition-colors shadow-2xs"
+                  title="Enter Security PIN to unlock editing"
+                >
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>Edit Profile</span>
+                </button>
+              )
+            )}
+
+            {existingProfile?.completedOnboarding && (
+              <button
+                onClick={onClose}
+                className="p-1.5 rounded-md text-ink-mute hover:text-ink hover:bg-hairline transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Form Body (Scrollable) */}
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 overflow-hidden">
           <div className="p-4 sm:p-6 space-y-6 overflow-y-auto flex-1">
+            {/* PIN Locked Banner */}
+            {!isUnlocked && existingProfile?.completedOnboarding && (
+              <div className="p-3.5 rounded-xl bg-amber-50/90 border border-amber-200 text-amber-800 text-xs flex items-center justify-between gap-3 shadow-2xs">
+                <div className="flex items-center gap-2">
+                  <Lock className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>Profile details &amp; logo are locked. Click <strong>Edit Profile</strong> above to enter PIN and make changes.</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsPinModalOpen(true)}
+                  className="px-3 py-1 rounded-md bg-amber-600 text-white font-semibold hover:bg-amber-700 transition-colors shrink-0 text-xs shadow-2xs"
+                >
+                  Enter PIN
+                </button>
+              </div>
+            )}
+
             {errorMsg && (
               <div className="p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
                 <span>{errorMsg}</span>
@@ -215,6 +287,7 @@ export default function OnboardingModal({
                   <input
                     type="text"
                     required
+                    disabled={!isUnlocked}
                     placeholder="e.g. Kumar Devanshu"
                     value={name}
                     onChange={(e) => {
@@ -222,9 +295,41 @@ export default function OnboardingModal({
                       if (e.target.value.trim() && !existingProfile?.avatarInitial) {
                         setAvatarInitial(e.target.value.trim().charAt(0).toUpperCase());
                       }
+                      // Auto-update username only if user hasn't manually changed it
+                      if (!username || username === autoUsername(name)) {
+                        setUsername(autoUsername(e.target.value));
+                      }
                     }}
-                    className="w-full text-base sm:text-sm px-3 py-2.5 sm:py-2 rounded-md border border-hairline-input focus:outline-none focus:border-primary bg-canvas text-ink"
+                    className={`w-full text-base sm:text-sm px-3 py-2.5 sm:py-2 rounded-md border focus:outline-none transition-colors ${
+                      isUnlocked
+                        ? "border-hairline-input bg-canvas text-ink focus:border-primary"
+                        : "border-hairline bg-canvas-soft text-ink-mute cursor-not-allowed"
+                    }`}
                   />
+                </div>
+
+                {/* Username */}
+                <div>
+                  <label className="block text-xs font-medium text-ink-secondary mb-1">
+                    Username <span className="text-ink-mute font-normal">(for team search)</span>
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-ink-mute font-mono select-none">@</span>
+                    <input
+                      type="text"
+                      disabled={!isUnlocked}
+                      placeholder="devanshu"
+                      value={username.replace(/^@/, "")}
+                      onChange={(e) =>
+                        setUsername("@" + e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))
+                      }
+                      className={`w-full text-base sm:text-sm pl-7 pr-3 py-2.5 sm:py-2 rounded-md border focus:outline-none font-mono transition-colors ${
+                        isUnlocked
+                          ? "border-hairline-input bg-canvas text-ink focus:border-primary"
+                          : "border-hairline bg-canvas-soft text-ink-mute cursor-not-allowed"
+                      }`}
+                    />
+                  </div>
                 </div>
 
                 {/* Age */}
@@ -236,10 +341,15 @@ export default function OnboardingModal({
                     type="number"
                     min={18}
                     max={100}
+                    disabled={!isUnlocked}
                     placeholder="e.g. 26"
                     value={age}
                     onChange={(e) => setAge(e.target.value)}
-                    className="w-full text-base sm:text-sm px-3 py-2.5 sm:py-2 rounded-md border border-hairline-input focus:outline-none focus:border-primary bg-canvas text-ink tabular-nums"
+                    className={`w-full text-base sm:text-sm px-3 py-2.5 sm:py-2 rounded-md border focus:outline-none tabular-nums transition-colors ${
+                      isUnlocked
+                        ? "border-hairline-input bg-canvas text-ink focus:border-primary"
+                        : "border-hairline bg-canvas-soft text-ink-mute cursor-not-allowed"
+                    }`}
                   />
                 </div>
 
@@ -253,12 +363,13 @@ export default function OnboardingModal({
                       <button
                         key={g}
                         type="button"
+                        disabled={!isUnlocked}
                         onClick={() => setGender(g)}
                         className={`px-3 py-1.5 rounded-pill text-xs font-medium transition-all ${
                           gender === g
                             ? "bg-primary text-white shadow-sm"
                             : "bg-canvas-soft border border-hairline text-ink-secondary hover:border-primary"
-                        }`}
+                        } ${!isUnlocked ? "opacity-60 cursor-not-allowed" : ""}`}
                       >
                         {g}
                       </button>
@@ -275,10 +386,15 @@ export default function OnboardingModal({
                   <input
                     type="text"
                     required
+                    disabled={!isUnlocked}
                     placeholder="e.g. Arigato Labs / Sector 59"
                     value={company}
                     onChange={(e) => setCompany(e.target.value)}
-                    className="w-full text-base sm:text-sm px-3 py-2.5 sm:py-2 rounded-md border border-hairline-input focus:outline-none focus:border-primary bg-canvas text-ink"
+                    className={`w-full text-base sm:text-sm px-3 py-2.5 sm:py-2 rounded-md border focus:outline-none transition-colors ${
+                      isUnlocked
+                        ? "border-hairline-input bg-canvas text-ink focus:border-primary"
+                        : "border-hairline bg-canvas-soft text-ink-mute cursor-not-allowed"
+                    }`}
                   />
                 </div>
 
@@ -291,10 +407,15 @@ export default function OnboardingModal({
                   <input
                     type="text"
                     required
+                    disabled={!isUnlocked}
                     placeholder="e.g. Talent Acquisition Lead"
                     value={position}
                     onChange={(e) => setPosition(e.target.value)}
-                    className="w-full text-base sm:text-sm px-3 py-2.5 sm:py-2 rounded-md border border-hairline-input focus:outline-none focus:border-primary bg-canvas text-ink"
+                    className={`w-full text-base sm:text-sm px-3 py-2.5 sm:py-2 rounded-md border focus:outline-none transition-colors ${
+                      isUnlocked
+                        ? "border-hairline-input bg-canvas text-ink focus:border-primary"
+                        : "border-hairline bg-canvas-soft text-ink-mute cursor-not-allowed"
+                    }`}
                   />
                 </div>
               </div>
@@ -319,12 +440,13 @@ export default function OnboardingModal({
                     <button
                       key={letter}
                       type="button"
+                      disabled={!isUnlocked}
                       onClick={() => setAvatarInitial(letter)}
                       className={`h-10 rounded-lg flex items-center justify-center font-cursive font-bold text-xl transition-all ${
                         isSelected
                           ? "bg-primary text-white shadow-md ring-2 ring-primary/40 scale-105"
                           : "bg-canvas-soft border border-hairline text-ink hover:border-primary hover:bg-canvas"
-                      }`}
+                      } ${!isUnlocked ? "opacity-50 cursor-not-allowed" : ""}`}
                     >
                       {letter}
                     </button>
@@ -352,12 +474,13 @@ export default function OnboardingModal({
                     <button
                       key={col.id}
                       type="button"
+                      disabled={!isUnlocked}
                       onClick={() => setAvatarColorId(col.id)}
                       className={`p-2.5 rounded-xl border text-left flex items-center gap-2.5 transition-all ${
                         isSelected
                           ? "ring-2 ring-primary shadow-sm scale-[1.03]"
                           : "hover:shadow-xs hover:scale-[1.01]"
-                      }`}
+                      } ${!isUnlocked ? "opacity-50 cursor-not-allowed" : ""}`}
                       style={{
                         backgroundColor: col.hexBg,
                         borderColor: col.hexBorder,
@@ -413,26 +536,50 @@ export default function OnboardingModal({
               </button>
             )}
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn-primary-pill text-xs sm:text-sm px-6 py-2.5 inline-flex items-center gap-2 shadow-sm disabled:opacity-70"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Saving Profile...</span>
-                </>
-              ) : (
-                <>
-                  <Check className="w-4 h-4" />
-                  <span>Save Profile &amp; Cursive Logo</span>
-                </>
-              )}
-            </button>
+            {!isUnlocked && existingProfile?.completedOnboarding ? (
+              <button
+                type="button"
+                onClick={() => setIsPinModalOpen(true)}
+                className="btn-secondary-pill text-xs sm:text-sm px-6 py-2.5 inline-flex items-center gap-2 shadow-sm text-amber-700 border-amber-300 hover:bg-amber-50"
+              >
+                <Lock className="w-4 h-4" />
+                <span>Enter PIN to Edit Profile</span>
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={loading}
+                className="btn-primary-pill text-xs sm:text-sm px-6 py-2.5 inline-flex items-center gap-2 shadow-sm disabled:opacity-70"
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Saving Profile...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-4 h-4" />
+                    <span>Save Profile &amp; Cursive Logo</span>
+                  </>
+                )}
+              </button>
+            )}
           </div>
         </form>
       </div>
+
+      {/* Security PIN Verification Modal */}
+      <SecurityPinModal
+        isOpen={isPinModalOpen}
+        onClose={() => setIsPinModalOpen(false)}
+        onSuccess={() => {
+          setIsUnlocked(true);
+          toast.success("Profile editing unlocked!");
+        }}
+        title="Unlock Profile Editing"
+        description="Enter your 4-digit Security PIN to edit your recruiter identity and cursive logo."
+        correctPin={settings?.securityPin || "1234"}
+      />
     </div>
   );
 }

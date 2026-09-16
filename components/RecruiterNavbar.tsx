@@ -52,7 +52,7 @@ export default function RecruiterNavbar({
       {/* ========================================================================= */}
       <div className="w-full backdrop-blur-md bg-white/95 border-b border-hairline/80">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-3">
-          {/* Left: Back to Home + Recruiter Brand & Cursive Logo */}
+          {/* Left: Back to Home + Brand Logo (favicon) + TalentFlow wordmark */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <Link
               href="/"
@@ -63,23 +63,8 @@ export default function RecruiterNavbar({
             </Link>
 
             <div className="flex items-center gap-2">
-              {recruiterProfile?.avatarInitial ? (
-                <button
-                  type="button"
-                  onClick={onOpenProfileModal}
-                  title={`Recruiter Logo (${recruiterProfile.avatarInitial}) — Click to edit profile`}
-                  className="focus:outline-none transition-transform hover:scale-105 active:scale-95 shrink-0"
-                >
-                  <CursiveAvatar
-                    initial={recruiterProfile.avatarInitial}
-                    colorId={recruiterProfile.avatarColorId}
-                    size="sm"
-                    className="w-8 h-8 rounded-lg shadow-2xs"
-                  />
-                </button>
-              ) : (
-                <BrandLogo size="sm" className="w-8 h-8 rounded-lg shadow-2xs" />
-              )}
+              {/* Always show the favicon/brand logo here */}
+              <BrandLogo size="sm" className="w-8 h-8 rounded-lg shadow-2xs shrink-0" />
               <div className="flex flex-col">
                 <span className="text-[17px] sm:text-[19px] font-bold tracking-tight text-ink leading-tight">
                   Talent<span className="text-primary font-medium">Flow</span>
@@ -91,9 +76,9 @@ export default function RecruiterNavbar({
             </div>
           </div>
 
-          {/* Right: Actions (Add Candidate, Export, Profile, Logout) */}
+          {/* Right: Actions */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            {/* Manager Export Button */}
+            {/* Manager Export — desktop only */}
             <button
               onClick={onOpenExportModal}
               className="hidden md:inline-flex btn-secondary-pill text-xs py-1.5 px-3 items-center gap-1.5 text-ink-secondary hover:text-emerald-700 hover:border-emerald-300 transition-all shadow-2xs"
@@ -103,10 +88,10 @@ export default function RecruiterNavbar({
               <span className="font-medium">Manager Export (.xlsx)</span>
             </button>
 
-            {/* Add Parties Button */}
+            {/* Add Parties — desktop only (md+) */}
             <button
               onClick={onOpenPartiesModal}
-              className="inline-flex btn-secondary-pill text-xs py-1.5 sm:py-2 px-2.5 sm:px-3 items-center gap-1.5 text-primary border-primary/30 hover:bg-primary-subdued/50 transition-all shadow-2xs shrink-0"
+              className="hidden md:inline-flex btn-secondary-pill text-xs py-1.5 px-3 items-center gap-1.5 text-primary border-primary/30 hover:bg-primary-subdued/50 transition-all shadow-2xs shrink-0"
               title="Add Collaborator Parties & Configure Permissions"
             >
               <Users className="w-3.5 h-3.5 text-primary shrink-0" />
@@ -118,7 +103,7 @@ export default function RecruiterNavbar({
               )}
             </button>
 
-            {/* Primary Add Candidate CTA */}
+            {/* Add Candidate CTA */}
             <button
               onClick={onOpenAddModal}
               className="btn-primary-pill text-xs py-1.5 sm:py-2 px-3 sm:px-4 inline-flex items-center gap-1.5 shadow-2xs shrink-0"
@@ -128,7 +113,7 @@ export default function RecruiterNavbar({
               <span className="font-semibold sm:hidden">Add</span>
             </button>
 
-            {/* Recruiter Profile Monogram Chip & Sign Out */}
+            {/* Recruiter Profile Chip + Sign Out */}
             {currentUser && (
               <div className="flex items-center gap-1.5 sm:gap-2 border-l border-hairline pl-2 sm:pl-3 ml-0.5 shrink-0">
                 <button

@@ -75,6 +75,21 @@ service cloud.firestore {
       allow read, write: if isAuthenticated();
     }
 
+    // Collaborator Parties & Team Members
+    match /parties/{partyId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Teams (Collaboration & Google-style Search)
+    match /teams/{teamId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Team Join Requests
+    match /team_requests/{requestId} {
+      allow read, write: if isAuthenticated();
+    }
+
     // Default deny all other paths
     match /{document=**} {
       allow read, write: if false;
