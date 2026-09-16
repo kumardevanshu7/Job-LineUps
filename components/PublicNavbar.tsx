@@ -18,19 +18,19 @@ export default function PublicNavbar() {
               Talent<span className="text-primary font-normal">Flow</span>
             </span>
             <span className="text-[10px] uppercase tracking-widest text-ink-mute -mt-1 font-medium">
-              Recruitment Engine
+              HR Line-Up Command
             </span>
           </div>
         </Link>
 
         {/* Navigation Links */}
         <nav className="hidden md:flex items-center gap-8 text-[14px] text-ink-secondary">
-          <a
-            href="#jobs-section"
+          <Link
+            href="/admin"
             className="hover:text-primary transition-colors font-normal"
           >
-            Open Vacancies
-          </a>
+            Line-Up Console
+          </Link>
           <a
             href="#workflow-section"
             className="hover:text-primary transition-colors font-normal"
@@ -41,7 +41,7 @@ export default function PublicNavbar() {
             href="#features-section"
             className="hover:text-primary transition-colors font-normal"
           >
-            Excel Line-Up Sync
+            Manager Excel Export
           </a>
         </nav>
 

@@ -20,38 +20,38 @@ export default function Footer() {
               </span>
             </div>
             <p className="text-xs text-ink-mute leading-relaxed font-light">
-              High-efficiency candidate intake, live recruiter line-up management, and instant spreadsheet synchronization.
+              High-velocity recruitment line-up engine, date-wise interview calendar, and instant spreadsheet synchronization for HR teams.
             </p>
             <div className="text-[11px] text-ink-mute">
-              Operational Hub: Sector 59, Noida, UP, India
+              Internal HR Command • Sector 59, Noida
             </div>
           </div>
 
           {/* Col 2 */}
           <div>
             <h4 className="text-xs font-semibold text-ink uppercase tracking-wider mb-3">
-              Open Positions
+              Line-Up Engine
             </h4>
             <ul className="space-y-2">
               <li>
-                <a href="#jobs-section" className="hover:text-primary transition-colors">
-                  Documentation Specialist
-                </a>
+                <Link href="/admin" className="hover:text-primary transition-colors">
+                  Daily Line-Up Roster
+                </Link>
               </li>
               <li>
-                <a href="#jobs-section" className="hover:text-primary transition-colors">
-                  Operations Executive
-                </a>
+                <Link href="/admin" className="hover:text-primary transition-colors">
+                  Date-Wise Calendar
+                </Link>
               </li>
               <li>
-                <a href="#jobs-section" className="hover:text-primary transition-colors">
-                  HR Trainee
-                </a>
+                <Link href="/admin" className="hover:text-primary transition-colors">
+                  Schedule Interviews
+                </Link>
               </li>
               <li>
-                <a href="#jobs-section" className="hover:text-primary transition-colors">
-                  All Open Roles
-                </a>
+                <Link href="/admin" className="hover:text-primary transition-colors">
+                  Manager Export (.xlsx)
+                </Link>
               </li>
             </ul>
           </div>
@@ -59,27 +59,27 @@ export default function Footer() {
           {/* Col 3 */}
           <div>
             <h4 className="text-xs font-semibold text-ink uppercase tracking-wider mb-3">
-              Recruiter Tools
+              Recruiter Controls
             </h4>
             <ul className="space-y-2">
               <li>
                 <Link href="/admin" className="hover:text-primary transition-colors">
-                  Live Line-Up Dashboard
-                </Link>
-              </li>
-              <li>
-                <a href="/api/export-lineup" className="hover:text-primary transition-colors">
-                  Export Line-Up (.xlsx)
-                </a>
-              </li>
-              <li>
-                <Link href="/admin" className="hover:text-primary transition-colors">
-                  Google Sheets Webhook Sync
+                  Google Sign-In Auth
                 </Link>
               </li>
               <li>
                 <Link href="/admin" className="hover:text-primary transition-colors">
-                  Pipeline Stage Progression
+                  Firestore Database Sync
+                </Link>
+              </li>
+              <li>
+                <Link href="/admin" className="hover:text-primary transition-colors">
+                  WhatsApp &amp; Call Links
+                </Link>
+              </li>
+              <li>
+                <Link href="/admin" className="hover:text-primary transition-colors">
+                  Pipeline Progression
                 </Link>
               </li>
             </ul>
@@ -97,11 +97,11 @@ export default function Footer() {
               </li>
               <li className="flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                <span>Vercel Zero-Config Deployment</span>
+                <span>Google Firebase Auth &amp; Firestore</span>
               </li>
               <li className="flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                <span>Prisma ORM &amp; SheetJS Engine</span>
+                <span>Vercel Zero-Config Deployment</span>
               </li>
             </ul>
           </div>
@@ -110,18 +110,13 @@ export default function Footer() {
         {/* Bottom copyright */}
         <div className="pt-8 border-t border-hairline flex flex-col sm:flex-row items-center justify-between gap-4 text-[11px]">
           <div>
-            © {new Date().getFullYear()} TalentFlow Inc. All rights reserved. Designed with Stripi-inspired visual grammar.
+            © {new Date().getFullYear()} TalentFlow HR Command. All rights reserved. Designed with Stripi-inspired visual grammar.
           </div>
           <div className="flex items-center gap-6">
-            <a href="#privacy" className="hover:text-ink transition-colors">
-              Privacy Policy
-            </a>
-            <a href="#terms" className="hover:text-ink transition-colors">
-              Terms of Service
-            </a>
-            <a href="#security" className="hover:text-ink transition-colors">
-              Enterprise Security
-            </a>
+            <Link href="/admin" className="hover:text-ink transition-colors">
+              Recruiter Console
+            </Link>
+            <span className="text-emerald-600 font-medium">● Firebase Connected</span>
           </div>
         </div>
       </div>
