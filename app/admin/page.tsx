@@ -1,42 +1,43 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
-import Link from "next/link";
+import RecruiterNavbar from "@/components/RecruiterNavbar";
+import CalendarView from "@/components/CalendarView";
+import AddCandidateModal from "@/components/AddCandidateModal";
+import ManagerExportModal from "@/components/ManagerExportModal";
+import MobileBottomNav from "@/components/MobileBottomNav";
+import GoogleAuthGate from "@/components/GoogleAuthGate";
 import {
-  Download,
-  Filter,
   Search,
   RefreshCw,
-  FileSpreadsheet,
   Phone,
-  Mail,
+  MessageCircle,
   MapPin,
+  FileText,
   ExternalLink,
   Calendar,
-  Sparkles,
-  Lock,
-  LogOut,
-  Settings,
-  ChevronDown,
   Clock,
-  Briefcase,
+  Download,
   Users,
   CheckCircle2,
-  XCircle,
-  Copy,
-  Check,
-  FileText,
-  AlertCircle,
+  Briefcase,
   Loader2,
-  Plus,
+  Settings,
 } from "lucide-react";
 import { toast } from "sonner";
-import { CandidateItem, CandidateStats, CandidateStatus } from "@/lib/types";
-import { GOOGLE_APPS_SCRIPT_TEMPLATE } from "@/lib/webhook";
+import { CandidateItem, CandidateStats } from "@/lib/types";
+import { isToday, isTomorrow, isThisWeek, formatIndianDateTime } from "@/lib/date-utils";
+import {
+  onRecruiterAuthStateChanged,
+  logOutRecruiter,
+  syncCandidateToFirestore,
+  updateCandidateInFirestore,
+} from "@/lib/firebase";
+import { User } from "firebase/auth";
 
 const STATUS_CONFIG: Record<
   string,
-  { label: string; bg: string; text: string; border: string; icon?: React.ReactNode }
+  { label: string; bg: string; text: string; border: string }
 > = {
   "New Applied": {
     label: "New Applied",
@@ -76,7 +77,7 @@ const STATUS_CONFIG: Record<
   },
 };
 
-const STATUS_LIST: CandidateStatus[] = [
+const STATUS_LIST = [
   "New Applied",
   "Screening Shortlisted",
   "Line-Up Scheduled",
@@ -85,14 +86,12 @@ const STATUS_LIST: CandidateStatus[] = [
   "Rejected",
 ];
 
-export default function AdminDashboardPage() {
-  // Authentication State
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [authChecking, setAuthChecking] = useState<boolean>(true);
-  const [passkeyInput, setPasskeyInput] = useState<string>("");
-  const [authError, setAuthError] = useState<string>("");
+export default function RecruiterAdminPage() {
+  // Google Authentication state
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
 
-  // Data State
+  // Data state
   const [candidates, setCandidates] = useState<CandidateItem[]>([]);
   const [stats, setStats] = useState<CandidateStats>({
     total: 0,
@@ -103,107 +102,85 @@ export default function AdminDashboardPage() {
     selected: 0,
     rejected: 0,
   });
-  const [loading, setLoading] = useState<boolean>(true);
-  const [refreshing, setRefreshing] = useState<boolean>(false);
+
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState<"LINEUP" | "CALENDAR">("LINEUP");
+
+  // Modals
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [activeCandidate, setActiveCandidate] = useState<CandidateItem | null>(null);
+  const [editNotes, setEditNotes] = useState("");
+  const [editInterviewDate, setEditInterviewDate] = useState("");
+  const [savingDetails, setSavingDetails] = useState(false);
 
   // Filters
-  const [searchQuery, setSearchQuery] = useState<string>("");
-  const [roleFilter, setRoleFilter] = useState<string>("ALL");
-  const [statusFilter, setStatusFilter] = useState<string>("ALL");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [roleFilter, setRoleFilter] = useState("ALL");
+  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [dateFilter, setDateFilter] = useState<"ALL" | "TODAY" | "TOMORROW" | "THIS_WEEK">("ALL");
 
-  // Candidate Details / Notes / Schedule Drawer
-  const [activeCandidate, setActiveCandidate] = useState<CandidateItem | null>(null);
-  const [editNotes, setEditNotes] = useState<string>("");
-  const [editInterviewDate, setEditInterviewDate] = useState<string>("");
-  const [savingDetails, setSavingDetails] = useState<boolean>(false);
-
-  // Cloud Sync Settings Modal
-  const [isSyncModalOpen, setIsSyncModalOpen] = useState<boolean>(false);
-  const [testWebhookUrl, setTestWebhookUrl] = useState<string>("");
-  const [testingWebhook, setTestingWebhook] = useState<boolean>(false);
-  const [copiedCode, setCopiedCode] = useState<boolean>(false);
-
-  // Check stored auth on mount
+  // Track Firebase Auth state
   useEffect(() => {
-    const storedAuth = sessionStorage.getItem("talentflow_admin_auth");
-    if (storedAuth === "true") {
-      setIsAuthenticated(true);
-    }
-    setAuthChecking(false);
+    const unsubscribe = onRecruiterAuthStateChanged((user) => {
+      setCurrentUser(user);
+      setAuthLoading(false);
+    });
+    return () => unsubscribe();
   }, []);
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAuthError("");
-
+  const handleSignOut = async () => {
     try {
-      const res = await fetch("/api/admin/auth", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password: passkeyInput }),
-      });
-
-      const data = await res.json();
-      if (res.ok && data.success) {
-        sessionStorage.setItem("talentflow_admin_auth", "true");
-        setIsAuthenticated(true);
-        toast.success("Welcome to Recruiter Line-Up Command");
-      } else {
-        setAuthError(data.error || "Invalid passkey. Default is talentflow2026");
-      }
+      await logOutRecruiter();
+      setCurrentUser(null);
+      toast.info("Signed out from Google Account");
     } catch (err) {
-      setAuthError("Authentication request failed. Please try again.");
+      toast.error("Failed to sign out");
     }
   };
 
-  const handleLogout = () => {
-    sessionStorage.removeItem("talentflow_admin_auth");
-    setIsAuthenticated(false);
-    toast.info("Logged out from Recruiter Command");
-  };
-
-  // Fetch Candidates Data
+  // Fetch Candidates
   const fetchCandidates = useCallback(async () => {
     try {
-      const params = new URLSearchParams();
-      if (roleFilter !== "ALL") params.append("role", roleFilter);
-      if (statusFilter !== "ALL") params.append("status", statusFilter);
-      if (searchQuery.trim()) params.append("search", searchQuery.trim());
-
-      const res = await fetch(`/api/candidates?${params.toString()}`);
+      const res = await fetch("/api/candidates");
       const data = await res.json();
-
-      if (data.success) {
-        setCandidates(data.candidates || []);
+      if (data.success && data.candidates) {
+        setCandidates(data.candidates);
         if (data.stats) {
           setStats(data.stats);
         }
       }
     } catch (err) {
-      console.error("Error fetching candidates:", err);
+      console.error("Failed to fetch candidates", err);
       toast.error("Failed to refresh candidate line-up");
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [roleFilter, statusFilter, searchQuery]);
+  }, []);
 
   useEffect(() => {
-    if (isAuthenticated) {
+    if (currentUser) {
       fetchCandidates();
     }
-  }, [isAuthenticated, fetchCandidates]);
+  }, [currentUser, fetchCandidates]);
 
   const handleRefresh = () => {
     setRefreshing(true);
     fetchCandidates();
   };
 
-  // Update Status Dropdown
+  // Status Change
   const handleStatusChange = async (candidateId: string, newStatus: string) => {
-    // Optimistic UI Update
+    // Optimistic UI update
     setCandidates((prev) =>
       prev.map((c) => (c.id === candidateId ? { ...c, status: newStatus } : c))
+    );
+
+    // Sync to Firestore
+    updateCandidateInFirestore(candidateId, { status: newStatus }).catch((e) =>
+      console.warn("Firestore sync error:", e)
     );
 
     try {
@@ -215,8 +192,7 @@ export default function AdminDashboardPage() {
 
       const data = await res.json();
       if (res.ok && data.success) {
-        toast.success(`Candidate status updated to "${newStatus}"`);
-        // Refresh stats
+        toast.success(`Status updated to "${newStatus}"`);
         fetchCandidates();
       } else {
         throw new Error(data.error || "Update failed");
@@ -233,12 +209,22 @@ export default function AdminDashboardPage() {
 
     setSavingDetails(true);
     try {
+      const interviewIso = editInterviewDate
+        ? new Date(editInterviewDate).toISOString()
+        : null;
+
+      // Update Firestore
+      updateCandidateInFirestore(activeCandidate.id, {
+        recruiterNotes: editNotes,
+        interviewDate: interviewIso,
+      }).catch((e) => console.warn("Firestore update error:", e));
+
       const res = await fetch(`/api/candidates/${activeCandidate.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           recruiterNotes: editNotes,
-          interviewDate: editInterviewDate ? new Date(editInterviewDate).toISOString() : null,
+          interviewDate: interviewIso,
         }),
       });
 
@@ -257,7 +243,6 @@ export default function AdminDashboardPage() {
     }
   };
 
-  // Open candidate details drawer
   const openCandidateDrawer = (candidate: CandidateItem) => {
     setActiveCandidate(candidate);
     setEditNotes(candidate.recruiterNotes || "");
@@ -268,42 +253,15 @@ export default function AdminDashboardPage() {
     );
   };
 
-  // Test Webhook
-  const handleTestWebhook = async () => {
-    if (!testWebhookUrl.trim() || !testWebhookUrl.startsWith("http")) {
-      toast.error("Please enter a valid Google Apps Script Web App URL");
-      return;
-    }
-
-    setTestingWebhook(true);
-    try {
-      const res = await fetch("/api/webhook/test", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ webhookUrl: testWebhookUrl.trim() }),
-      });
-
-      const data = await res.json();
-      if (res.ok && data.success) {
-        toast.success(data.message || "Google Sheets Webhook connected successfully!");
-      } else {
-        toast.error(data.error || "Webhook test failed. Verify URL permissions.");
-      }
-    } catch (err) {
-      toast.error("Failed to ping webhook URL.");
-    } finally {
-      setTestingWebhook(false);
-    }
+  const handleCandidateAdded = (newCand: CandidateItem) => {
+    syncCandidateToFirestore(newCand).catch((e) =>
+      console.warn("Firestore candidate save error:", e)
+    );
+    fetchCandidates();
   };
 
-  const copyScriptCode = () => {
-    navigator.clipboard.writeText(GOOGLE_APPS_SCRIPT_TEMPLATE);
-    setCopiedCode(true);
-    toast.success("Google Apps Script code copied to clipboard!");
-    setTimeout(() => setCopiedCode(false), 3000);
-  };
-
-  if (authChecking) {
+  // Auth checking spinner
+  if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-canvas-soft">
         <Loader2 className="w-8 h-8 text-primary animate-spin" />
@@ -311,508 +269,620 @@ export default function AdminDashboardPage() {
     );
   }
 
-  // Passkey Login Screen
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-canvas-soft p-4">
-        <div className="w-full max-w-md bg-canvas rounded-xl border border-hairline shadow-level2 p-8 text-center">
-          <div className="w-12 h-12 rounded-xl bg-brand-dark text-white mx-auto flex items-center justify-center mb-4 shadow-sm">
-            <Lock className="w-6 h-6 text-primary-subdued" />
-          </div>
-
-          <h1 className="text-2xl font-light text-ink tracking-heading-lg mb-2">
-            TalentFlow Recruiter Portal
-          </h1>
-          <p className="text-xs text-ink-mute mb-6 font-light">
-            Enter your authorized access passkey to view candidate line-ups, manage ATS stages, and export daily rosters.
-          </p>
-
-          <form onSubmit={handleLogin} className="space-y-4 text-left">
-            {authError && (
-              <div className="p-3 rounded-md bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 shrink-0" />
-                <span>{authError}</span>
-              </div>
-            )}
-
-            <div>
-              <label className="block text-xs font-medium text-ink-secondary mb-1">
-                Recruiter Passkey
-              </label>
-              <input
-                type="password"
-                required
-                placeholder="Default: talentflow2026"
-                value={passkeyInput}
-                onChange={(e) => setPasskeyInput(e.target.value)}
-                className="w-full text-sm px-3.5 py-2.5 rounded-sm border border-hairline-input focus:outline-none focus:border-primary bg-canvas text-ink tracking-wider"
-              />
-              <p className="text-[11px] text-ink-mute mt-1">
-                Default demo passkey: <code className="text-primary font-mono font-semibold">talentflow2026</code>
-              </p>
-            </div>
-
-            <button
-              type="submit"
-              className="w-full btn-primary-pill text-sm py-2.5 shadow-sm mt-2"
-            >
-              Unlock Recruiter Console
-            </button>
-
-            <div className="pt-4 text-center">
-              <Link
-                href="/"
-                className="text-xs text-ink-mute hover:text-primary transition-colors inline-flex items-center gap-1"
-              >
-                ← Back to Public Job Portal
-              </Link>
-            </div>
-          </form>
-        </div>
-      </div>
-    );
+  // Google Sign-In Gate for /admin
+  if (!currentUser) {
+    return <GoogleAuthGate onSuccess={() => {}} />;
   }
 
-  // Recruiter Command Center Dashboard
+  // Filtered Candidates
+  const filteredCandidates = candidates.filter((c) => {
+    if (roleFilter !== "ALL" && c.appliedRole !== roleFilter) return false;
+    if (statusFilter !== "ALL" && c.status !== statusFilter) return false;
+
+    if (dateFilter === "TODAY") {
+      if (!c.interviewDate || !isToday(c.interviewDate)) return false;
+    } else if (dateFilter === "TOMORROW") {
+      if (!c.interviewDate || !isTomorrow(c.interviewDate)) return false;
+    } else if (dateFilter === "THIS_WEEK") {
+      if (!c.interviewDate || !isThisWeek(c.interviewDate)) return false;
+    }
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const matchName = c.fullName.toLowerCase().includes(q);
+      const matchPhone = c.phone.includes(q);
+      const matchEmail = c.email.toLowerCase().includes(q);
+      const matchRole = c.appliedRole.toLowerCase().includes(q);
+      if (!matchName && !matchPhone && !matchEmail && !matchRole) return false;
+    }
+
+    return true;
+  });
+
+  const todayCount = candidates.filter(
+    (c) => c.interviewDate && isToday(c.interviewDate)
+  ).length;
+
+  const tomorrowCount = candidates.filter(
+    (c) => c.interviewDate && isTomorrow(c.interviewDate)
+  ).length;
+
   return (
-    <div className="min-h-screen bg-canvas-soft flex flex-col">
-      {/* Top Admin Header */}
-      <header className="sticky top-0 z-30 bg-canvas border-b border-hairline shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Link href="/" className="flex items-center gap-2.5 group">
-              <div className="w-8 h-8 rounded-lg bg-brand-dark flex items-center justify-center text-white">
-                <Sparkles className="w-4 h-4 text-primary" />
-              </div>
-              <div className="flex flex-col">
-                <span className="text-[17px] font-semibold tracking-tight text-ink">
-                  Talent<span className="text-primary font-normal">Flow</span>
-                </span>
-                <span className="text-[10px] uppercase tracking-widest text-primary font-semibold -mt-1">
-                  Recruiter Line-Up
-                </span>
-              </div>
-            </Link>
+    <div className="min-h-screen bg-canvas-soft flex flex-col pb-20 md:pb-8">
+      {/* Top Recruiter Navbar */}
+      <RecruiterNavbar
+        onOpenAddModal={() => setIsAddModalOpen(true)}
+        onOpenExportModal={() => setIsExportModalOpen(true)}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        currentUser={currentUser}
+        onSignOut={handleSignOut}
+      />
 
-            <span className="hidden sm:inline-block px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
-              ● Live Sync
-            </span>
-          </div>
-
-          {/* Header Controls */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            <button
-              onClick={() => setIsSyncModalOpen(true)}
-              className="btn-secondary-pill text-xs py-1.5 px-3 inline-flex items-center gap-1.5 text-ink-secondary hover:text-primary"
-              title="Google Sheets Sync Settings"
-            >
-              <Settings className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Google Sheets Sync</span>
-            </button>
-
-            <a
-              href={`/api/export-lineup?role=${roleFilter}&status=${statusFilter}&search=${encodeURIComponent(
-                searchQuery
-              )}`}
-              className="btn-primary-pill text-xs py-1.5 px-3.5 inline-flex items-center gap-1.5 shadow-sm"
-              title="Export filtered candidates into Excel (.xlsx)"
-            >
-              <Download className="w-3.5 h-3.5" />
-              <span>Download Line-Up (.xlsx)</span>
-            </a>
-
-            <button
-              onClick={handleLogout}
-              className="p-2 rounded-full text-ink-mute hover:text-ink hover:bg-hairline transition-colors"
-              title="Logout"
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content Area */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full flex-1">
-        {/* Page Title & Quick Refresh */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-light text-ink tracking-heading-lg">
-              Master Candidate Line-Up &amp; Pipeline
-            </h1>
-            <p className="text-xs sm:text-sm text-ink-mute mt-0.5 font-light">
-              Live tracking for candidates applying across Sector 59 Noida openings. Real-time ATS stages and instant export.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="btn-secondary-pill text-xs py-1.5 px-3 inline-flex items-center gap-1.5"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin text-primary" : ""}`} />
-              <span>{refreshing ? "Refreshing..." : "Refresh Queue"}</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Executive KPI Stats Bar */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
+      {/* Main Container */}
+      <main className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 w-full flex-1">
+        {/* Top KPI Metrics Bar */}
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 sm:gap-3 mb-6">
           <div className="bg-canvas border border-hairline rounded-lg p-3 shadow-level1">
             <div className="text-[11px] text-ink-mute uppercase tracking-wider mb-1 flex items-center justify-between">
-              <span>Total Inbound</span>
+              <span>Total Roster</span>
               <Users className="w-3.5 h-3.5 text-primary" />
             </div>
-            <div className="text-2xl font-light text-ink tabular-nums">
+            <div className="text-xl sm:text-2xl font-light text-ink tabular-nums">
               {stats.total}
             </div>
           </div>
 
-          <div className="bg-canvas border border-hairline rounded-lg p-3 shadow-level1">
-            <div className="text-[11px] text-ink-mute uppercase tracking-wider mb-1 flex items-center justify-between">
-              <span>New Applied</span>
-              <Clock className="w-3.5 h-3.5 text-blue-600" />
+          <div
+            onClick={() => {
+              setActiveTab("LINEUP");
+              setDateFilter("TODAY");
+            }}
+            className={`bg-canvas border rounded-lg p-3 shadow-level1 cursor-pointer transition-all ${
+              dateFilter === "TODAY"
+                ? "border-primary ring-2 ring-primary/20"
+                : "border-hairline hover:border-primary"
+            }`}
+          >
+            <div className="text-[11px] text-primary font-semibold uppercase tracking-wider mb-1 flex items-center justify-between">
+              <span>Today&apos;s Line-Up</span>
+              <Calendar className="w-3.5 h-3.5 text-primary" />
             </div>
-            <div className="text-2xl font-light text-blue-600 tabular-nums">
-              {stats.newApplied}
+            <div className="text-xl sm:text-2xl font-semibold text-primary tabular-nums">
+              {todayCount}
+            </div>
+          </div>
+
+          <div
+            onClick={() => {
+              setActiveTab("LINEUP");
+              setDateFilter("TOMORROW");
+            }}
+            className={`bg-canvas border rounded-lg p-3 shadow-level1 cursor-pointer transition-all ${
+              dateFilter === "TOMORROW"
+                ? "border-primary ring-2 ring-primary/20"
+                : "border-hairline hover:border-primary"
+            }`}
+          >
+            <div className="text-[11px] text-ink-mute uppercase tracking-wider mb-1 flex items-center justify-between">
+              <span>Tomorrow</span>
+              <Clock className="w-3.5 h-3.5 text-purple-600" />
+            </div>
+            <div className="text-xl sm:text-2xl font-light text-purple-600 tabular-nums">
+              {tomorrowCount}
             </div>
           </div>
 
           <div className="bg-canvas border border-hairline rounded-lg p-3 shadow-level1">
             <div className="text-[11px] text-ink-mute uppercase tracking-wider mb-1 flex items-center justify-between">
               <span>Shortlisted</span>
-              <Briefcase className="w-3.5 h-3.5 text-purple-600" />
+              <Briefcase className="w-3.5 h-3.5 text-blue-600" />
             </div>
-            <div className="text-2xl font-light text-purple-600 tabular-nums">
+            <div className="text-xl sm:text-2xl font-light text-blue-600 tabular-nums">
               {stats.shortlisted}
             </div>
           </div>
 
-          <div className="bg-canvas border border-hairline rounded-lg p-3 shadow-level1">
-            <div className="text-[11px] text-ink-mute uppercase tracking-wider mb-1 flex items-center justify-between">
-              <span>Line-Up Sched.</span>
-              <Calendar className="w-3.5 h-3.5 text-primary" />
-            </div>
-            <div className="text-2xl font-light text-primary tabular-nums">
-              {stats.scheduled}
-            </div>
-          </div>
-
-          <div className="bg-canvas border border-hairline rounded-lg p-3 shadow-level1">
+          <div className="col-span-2 sm:col-span-1 bg-canvas border border-hairline rounded-lg p-3 shadow-level1">
             <div className="text-[11px] text-ink-mute uppercase tracking-wider mb-1 flex items-center justify-between">
               <span>Selected</span>
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
             </div>
-            <div className="text-2xl font-light text-emerald-600 tabular-nums">
+            <div className="text-xl sm:text-2xl font-light text-emerald-600 tabular-nums">
               {stats.selected}
             </div>
           </div>
-
-          <div className="bg-canvas border border-hairline rounded-lg p-3 shadow-level1">
-            <div className="text-[11px] text-ink-mute uppercase tracking-wider mb-1 flex items-center justify-between">
-              <span>Rejected</span>
-              <XCircle className="w-3.5 h-3.5 text-slate-400" />
-            </div>
-            <div className="text-2xl font-light text-slate-500 tabular-nums">
-              {stats.rejected}
-            </div>
-          </div>
         </div>
 
-        {/* Filter Controls Row */}
-        <div className="bg-canvas border border-hairline rounded-xl p-4 shadow-level1 mb-6 flex flex-col md:flex-row items-center justify-between gap-4">
-          {/* Search Box */}
-          <div className="relative w-full md:w-80">
-            <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-ink-mute" />
-            <input
-              type="text"
-              placeholder="Search candidate, phone, email..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full text-xs sm:text-sm pl-9 pr-3 py-2 rounded-sm border border-hairline-input focus:outline-none focus:border-primary bg-canvas text-ink"
-            />
-          </div>
-
-          {/* Filter Dropdowns */}
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full md:w-auto">
-            {/* Role Filter */}
-            <div className="flex items-center gap-1 text-xs text-ink-mute">
-              <span className="hidden sm:inline">Role:</span>
-              <select
-                value={roleFilter}
-                onChange={(e) => setRoleFilter(e.target.value)}
-                className="text-xs px-2.5 py-1.5 rounded-sm border border-hairline-input bg-canvas text-ink focus:outline-none focus:border-primary"
-              >
-                <option value="ALL">All Roles</option>
-                <option value="Documentation Specialist">Documentation Specialist</option>
-                <option value="Operations Executive">Operations Executive</option>
-                <option value="HR Trainee">HR Trainee</option>
-              </select>
-            </div>
-
-            {/* Status Filter */}
-            <div className="flex items-center gap-1 text-xs text-ink-mute">
-              <span className="hidden sm:inline">Status:</span>
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="text-xs px-2.5 py-1.5 rounded-sm border border-hairline-input bg-canvas text-ink focus:outline-none focus:border-primary"
-              >
-                <option value="ALL">All Pipeline Stages</option>
-                {STATUS_LIST.map((st) => (
-                  <option key={st} value={st}>
-                    {st}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {(roleFilter !== "ALL" || statusFilter !== "ALL" || searchQuery) && (
-              <button
-                onClick={() => {
-                  setRoleFilter("ALL");
-                  setStatusFilter("ALL");
-                  setSearchQuery("");
-                }}
-                className="text-xs text-primary hover:underline px-2 py-1"
-              >
-                Clear
-              </button>
-            )}
-          </div>
+        {/* View Switcher Bar (Mobile & Tablet) */}
+        <div className="flex md:hidden items-center justify-between gap-2 mb-4 bg-canvas p-1.5 rounded-xl border border-hairline shadow-sm">
+          <button
+            onClick={() => setActiveTab("LINEUP")}
+            className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-all ${
+              activeTab === "LINEUP"
+                ? "bg-brand-dark text-white shadow-sm"
+                : "text-ink-secondary"
+            }`}
+          >
+            Candidate Line-Up
+          </button>
+          <button
+            onClick={() => setActiveTab("CALENDAR")}
+            className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-all ${
+              activeTab === "CALENDAR"
+                ? "bg-brand-dark text-white shadow-sm"
+                : "text-ink-secondary"
+            }`}
+          >
+            Interview Calendar
+          </button>
         </div>
 
-        {/* Master Line-Up Table */}
-        <div className="bg-canvas border border-hairline rounded-xl shadow-level2 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs divide-y divide-hairline">
-              <thead className="bg-canvas-soft text-ink-mute font-medium text-[11px] uppercase tracking-wider">
-                <tr>
-                  <th className="py-3 px-4">Applied</th>
-                  <th className="py-3 px-4">Candidate &amp; Contact</th>
-                  <th className="py-3 px-4">Applied Role</th>
-                  <th className="py-3 px-4 text-center">Exp / Notice</th>
-                  <th className="py-3 px-4">CTC (Cur / Exp)</th>
-                  <th className="py-3 px-4">Resume</th>
-                  <th className="py-3 px-4">Pipeline Status</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-hairline bg-canvas">
-                {loading ? (
-                  <tr>
-                    <td colSpan={8} className="py-12 text-center text-ink-mute">
-                      <Loader2 className="w-6 h-6 text-primary animate-spin mx-auto mb-2" />
-                      <span>Loading candidate records...</span>
-                    </td>
-                  </tr>
-                ) : candidates.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="py-12 text-center text-ink-mute">
-                      <FileSpreadsheet className="w-8 h-8 text-ink-mute/50 mx-auto mb-2" />
-                      <p className="text-sm font-medium text-ink">No candidates in this line-up filter</p>
-                      <p className="text-xs text-ink-mute mt-1">
-                        Try adjusting your search criteria or role filters above.
-                      </p>
-                    </td>
-                  </tr>
-                ) : (
-                  candidates.map((c) => {
-                    const statusMeta =
-                      STATUS_CONFIG[c.status] || STATUS_CONFIG["New Applied"];
+        {/* Active Tab: CALENDAR VIEW */}
+        {activeTab === "CALENDAR" && (
+          <CalendarView
+            candidates={candidates}
+            onStatusChange={handleStatusChange}
+            onOpenDetails={openCandidateDrawer}
+          />
+        )}
 
-                    return (
-                      <tr
-                        key={c.id}
-                        className="hover:bg-canvas-soft/70 transition-colors group"
-                      >
-                        {/* Applied Date */}
-                        <td className="py-3.5 px-4 whitespace-nowrap text-ink-mute tabular-nums">
-                          <div className="text-ink font-medium">
-                            {new Date(c.createdAt).toLocaleDateString("en-IN", {
-                              day: "2-digit",
-                              month: "short",
-                            })}
-                          </div>
-                          <div className="text-[10px] text-ink-mute">
-                            {new Date(c.createdAt).toLocaleTimeString("en-IN", {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
-                          </div>
-                        </td>
+        {/* Active Tab: LINE-UP ROSTER TABLE & CARDS */}
+        {activeTab === "LINEUP" && (
+          <div className="space-y-4">
+            {/* Filter Bar */}
+            <div className="bg-canvas border border-hairline rounded-xl p-3 sm:p-4 shadow-level1 space-y-3">
+              <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                {/* Search */}
+                <div className="relative w-full sm:w-80">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-ink-mute" />
+                  <input
+                    type="text"
+                    placeholder="Search name, phone, or role..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full text-xs sm:text-sm pl-9 pr-3 py-2 rounded-sm border border-hairline-input focus:outline-none focus:border-primary bg-canvas text-ink"
+                  />
+                </div>
 
-                        {/* Candidate & Contact */}
-                        <td className="py-3.5 px-4">
-                          <div className="font-semibold text-ink text-[13px] flex items-center gap-1.5">
-                            <span>{c.fullName}</span>
-                            <span className="text-[10px] text-ink-mute font-mono font-normal">
-                              ({c.id})
+                {/* Date Filter Buttons */}
+                <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto">
+                  <button
+                    onClick={() => setDateFilter("ALL")}
+                    className={`px-3 py-1 rounded-pill text-xs font-medium transition-all ${
+                      dateFilter === "ALL"
+                        ? "bg-brand-dark text-white shadow-sm"
+                        : "bg-canvas-soft border border-hairline text-ink-secondary hover:border-primary"
+                    }`}
+                  >
+                    All ({candidates.length})
+                  </button>
+
+                  <button
+                    onClick={() => setDateFilter("TODAY")}
+                    className={`px-3 py-1 rounded-pill text-xs font-medium transition-all ${
+                      dateFilter === "TODAY"
+                        ? "bg-primary text-white shadow-sm"
+                        : "bg-canvas-soft border border-hairline text-primary hover:bg-primary/5"
+                    }`}
+                  >
+                    Today ({todayCount})
+                  </button>
+
+                  <button
+                    onClick={() => setDateFilter("TOMORROW")}
+                    className={`px-3 py-1 rounded-pill text-xs font-medium transition-all ${
+                      dateFilter === "TOMORROW"
+                        ? "bg-purple-600 text-white shadow-sm"
+                        : "bg-canvas-soft border border-hairline text-purple-700 hover:bg-purple-50"
+                    }`}
+                  >
+                    Tomorrow ({tomorrowCount})
+                  </button>
+
+                  <button
+                    onClick={() => setDateFilter("THIS_WEEK")}
+                    className={`px-3 py-1 rounded-pill text-xs font-medium transition-all ${
+                      dateFilter === "THIS_WEEK"
+                        ? "bg-brand-dark text-white shadow-sm"
+                        : "bg-canvas-soft border border-hairline text-ink-secondary hover:border-primary"
+                    }`}
+                  >
+                    This Week
+                  </button>
+                </div>
+              </div>
+
+              {/* Row 2: Role & Status Dropdowns */}
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-hairline text-xs">
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex items-center gap-1">
+                    <span className="text-ink-mute hidden sm:inline">Role:</span>
+                    <select
+                      value={roleFilter}
+                      onChange={(e) => setRoleFilter(e.target.value)}
+                      className="text-xs px-2.5 py-1 rounded-sm border border-hairline-input bg-canvas text-ink focus:outline-none focus:border-primary"
+                    >
+                      <option value="ALL">All Roles</option>
+                      <option value="Documentation Specialist">Documentation Specialist</option>
+                      <option value="Operations Executive">Operations Executive</option>
+                      <option value="HR Trainee">HR Trainee</option>
+                    </select>
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    <span className="text-ink-mute hidden sm:inline">Status:</span>
+                    <select
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value)}
+                      className="text-xs px-2.5 py-1 rounded-sm border border-hairline-input bg-canvas text-ink focus:outline-none focus:border-primary"
+                    >
+                      <option value="ALL">All Stages</option>
+                      {STATUS_LIST.map((st) => (
+                        <option key={st} value={st}>
+                          {st}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {(roleFilter !== "ALL" || statusFilter !== "ALL" || searchQuery || dateFilter !== "ALL") && (
+                    <button
+                      onClick={() => {
+                        setRoleFilter("ALL");
+                        setStatusFilter("ALL");
+                        setSearchQuery("");
+                        setDateFilter("ALL");
+                      }}
+                      className="text-xs text-primary hover:underline px-2 py-0.5"
+                    >
+                      Reset
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleRefresh}
+                    disabled={refreshing}
+                    className="text-xs text-ink-mute hover:text-primary inline-flex items-center gap-1 py-1"
+                  >
+                    <RefreshCw className={`w-3 h-3 ${refreshing ? "animate-spin text-primary" : ""}`} />
+                    <span>Refresh</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Mobile View: Clean Candidate Cards List */}
+            <div className="block md:hidden space-y-3">
+              {loading ? (
+                <div className="p-8 text-center text-ink-mute">
+                  <Loader2 className="w-6 h-6 animate-spin text-primary mx-auto mb-2" />
+                  <span>Loading candidate line-up...</span>
+                </div>
+              ) : filteredCandidates.length === 0 ? (
+                <div className="p-8 bg-canvas border border-hairline rounded-xl text-center text-ink-mute">
+                  <Users className="w-8 h-8 mx-auto text-ink-mute/40 mb-2" />
+                  <p className="font-medium text-ink text-sm">No candidates found</p>
+                  <p className="text-xs text-ink-mute mt-1">Tap &ldquo;+&rdquo; below to add candidate line-up</p>
+                </div>
+              ) : (
+                filteredCandidates.map((c) => {
+                  const statusMeta = STATUS_CONFIG[c.status] || STATUS_CONFIG["New Applied"];
+                  const { dateStr, timeStr, relativeLabel } = formatIndianDateTime(c.interviewDate);
+
+                  return (
+                    <div
+                      key={c.id}
+                      className="bg-canvas border border-hairline rounded-xl p-4 shadow-level1 space-y-3"
+                    >
+                      {/* Top Row: Role & Status */}
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[11px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full truncate max-w-44">
+                          {c.appliedRole}
+                        </span>
+
+                        <select
+                          value={c.status}
+                          onChange={(e) => handleStatusChange(c.id, e.target.value)}
+                          className={`text-[11px] font-medium px-2 py-0.5 rounded-full border cursor-pointer focus:outline-none ${statusMeta.bg} ${statusMeta.text} ${statusMeta.border}`}
+                        >
+                          {STATUS_LIST.map((st) => (
+                            <option key={st} value={st}>
+                              {st}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Candidate Name & Contact */}
+                      <div>
+                        <div className="text-base font-semibold text-ink flex items-center justify-between">
+                          <span>{c.fullName}</span>
+                          <span className="text-[10px] text-ink-mute font-mono">{c.id}</span>
+                        </div>
+                        <div className="text-xs text-ink-mute flex items-center gap-1 mt-0.5">
+                          <MapPin className="w-3 h-3 text-primary shrink-0" />
+                          <span>{c.location}</span>
+                          <span>•</span>
+                          <span className="tabular-nums">{c.experienceYears} Yrs Exp</span>
+                          <span>•</span>
+                          <span className="tabular-nums">{c.noticePeriodDays}d Notice</span>
+                        </div>
+                      </div>
+
+                      {/* Scheduled Time Banner if set */}
+                      {c.interviewDate ? (
+                        <div className="p-2 rounded-lg bg-primary/5 border border-primary/20 flex items-center justify-between text-xs">
+                          <div className="flex items-center gap-1.5 text-primary font-medium">
+                            <Clock className="w-3.5 h-3.5" />
+                            <span>
+                              {relativeLabel ? `${relativeLabel}, ` : ""}
+                              {dateStr} at {timeStr}
                             </span>
                           </div>
-                          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-ink-mute mt-0.5">
-                            <a
-                              href={`tel:${c.phone}`}
-                              className="hover:text-primary flex items-center gap-1 tabular-nums"
-                            >
-                              <Phone className="w-2.5 h-2.5" />
-                              {c.phone}
-                            </a>
-                            <a
-                              href={`mailto:${c.email}`}
-                              className="hover:text-primary flex items-center gap-1"
-                            >
-                              <Mail className="w-2.5 h-2.5" />
-                              {c.email}
-                            </a>
-                          </div>
-                          <div className="text-[10px] text-ink-mute flex items-center gap-1 mt-0.5">
-                            <MapPin className="w-2.5 h-2.5 text-primary" />
-                            <span>{c.location}</span>
-                          </div>
-                        </td>
-
-                        {/* Role */}
-                        <td className="py-3.5 px-4">
-                          <span className="font-medium text-ink">{c.appliedRole}</span>
-                        </td>
-
-                        {/* Exp / Notice */}
-                        <td className="py-3.5 px-4 text-center whitespace-nowrap tabular-nums">
-                          <div className="font-medium text-ink">
-                            {c.experienceYears} Yrs
-                          </div>
-                          <div className="text-[10px] text-ink-mute">
-                            {c.noticePeriodDays === 0
-                              ? "Immediate"
-                              : `${c.noticePeriodDays}d Notice`}
-                          </div>
-                        </td>
-
-                        {/* CTC */}
-                        <td className="py-3.5 px-4 whitespace-nowrap tabular-nums">
-                          <div className="text-ink text-[11px]">
-                            {c.currentCtc || "—"}
-                          </div>
-                          <div className="text-[10px] text-emerald-600 font-medium">
-                            Exp: {c.expectedCtc || "—"}
-                          </div>
-                        </td>
-
-                        {/* Resume */}
-                        <td className="py-3.5 px-4 whitespace-nowrap">
-                          <a
-                            href={c.resumeUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:text-primary-deep hover:underline bg-primary/5 px-2 py-1 rounded"
-                          >
-                            <FileText className="w-3 h-3" />
-                            <span>Drive Link</span>
-                            <ExternalLink className="w-2.5 h-2.5" />
-                          </a>
-                        </td>
-
-                        {/* Dynamic Status Dropdown */}
-                        <td className="py-3.5 px-4 whitespace-nowrap">
-                          <div className="relative inline-block">
-                            <select
-                              value={c.status}
-                              onChange={(e) =>
-                                handleStatusChange(c.id, e.target.value)
-                              }
-                              className={`text-[11px] font-medium px-2.5 py-1 rounded-full border cursor-pointer focus:outline-none focus:ring-1 focus:ring-primary ${statusMeta.bg} ${statusMeta.text} ${statusMeta.border}`}
-                            >
-                              {STATUS_LIST.map((status) => (
-                                <option
-                                  key={status}
-                                  value={status}
-                                  className="bg-white text-ink"
-                                >
-                                  {status}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-
-                          {c.interviewDate && (
-                            <div className="text-[10px] text-primary mt-1 flex items-center gap-1">
-                              <Calendar className="w-2.5 h-2.5" />
-                              <span>
-                                {new Date(c.interviewDate).toLocaleDateString("en-IN", {
-                                  day: "numeric",
-                                  month: "short",
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                })}
-                              </span>
-                            </div>
-                          )}
-                        </td>
-
-                        {/* Actions */}
-                        <td className="py-3.5 px-4 text-right whitespace-nowrap">
                           <button
                             onClick={() => openCandidateDrawer(c)}
-                            className="text-xs text-primary hover:text-primary-deep font-medium hover:underline inline-flex items-center gap-1"
+                            className="text-[11px] text-primary hover:underline font-semibold"
                           >
-                            <span>Details &amp; Schedule</span>
+                            Reschedule
                           </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between text-xs text-ink-mute">
+                          <span>No interview scheduled</span>
+                          <button
+                            onClick={() => openCandidateDrawer(c)}
+                            className="text-[11px] text-primary font-medium hover:underline"
+                          >
+                            + Schedule Slot
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Direct Call, WhatsApp & Resume Buttons */}
+                      <div className="flex items-center gap-2 pt-2 border-t border-hairline">
+                        <a
+                          href={`tel:${c.phone}`}
+                          className="flex-1 text-center py-2 text-xs font-semibold rounded-pill bg-canvas-soft border border-hairline text-ink hover:text-primary transition-colors flex items-center justify-center gap-1"
+                        >
+                          <Phone className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>Call</span>
+                        </a>
+
+                        <a
+                          href={`https://wa.me/91${c.phone}?text=Hello%20${encodeURIComponent(
+                            c.fullName
+                          )},%20this%20is%20from%20TalentFlow%20Recruitment%20regarding%20your%20interview%20schedule.`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex-1 text-center py-2 text-xs font-semibold rounded-pill bg-canvas-soft border border-hairline text-ink hover:text-emerald-600 transition-colors flex items-center justify-center gap-1"
+                        >
+                          <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>WhatsApp</span>
+                        </a>
+
+                        <a
+                          href={c.resumeUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-2 rounded-pill bg-canvas-soft border border-hairline text-primary hover:bg-primary/5"
+                          title="Open Resume"
+                        >
+                          <FileText className="w-4 h-4" />
+                        </a>
+                      </div>
+
+                      {c.recruiterNotes && (
+                        <p className="text-[11px] text-ink-mute italic bg-canvas-soft p-2 rounded">
+                          &ldquo;{c.recruiterNotes}&rdquo;
+                        </p>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Desktop View: Full Enterprise Table */}
+            <div className="hidden md:block bg-canvas border border-hairline rounded-xl shadow-level2 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs divide-y divide-hairline">
+                  <thead className="bg-canvas-soft text-ink-mute font-medium text-[11px] uppercase tracking-wider">
+                    <tr>
+                      <th className="py-3 px-4">Interview Schedule</th>
+                      <th className="py-3 px-4">Candidate &amp; Contact</th>
+                      <th className="py-3 px-4">Applied Role</th>
+                      <th className="py-3 px-4 text-center">Exp / Notice</th>
+                      <th className="py-3 px-4">Current / Exp CTC</th>
+                      <th className="py-3 px-4">Resume</th>
+                      <th className="py-3 px-4">Pipeline Status</th>
+                      <th className="py-3 px-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-hairline bg-canvas">
+                    {loading ? (
+                      <tr>
+                        <td colSpan={8} className="py-12 text-center text-ink-mute">
+                          <Loader2 className="w-6 h-6 animate-spin text-primary mx-auto mb-2" />
+                          <span>Loading candidate line-up...</span>
                         </td>
                       </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
+                    ) : filteredCandidates.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="py-12 text-center text-ink-mute">
+                          <p className="text-sm font-medium text-ink">No candidates in this filter</p>
+                          <p className="text-xs text-ink-mute mt-1">Try resetting the search or date filters.</p>
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredCandidates.map((c) => {
+                        const statusMeta = STATUS_CONFIG[c.status] || STATUS_CONFIG["New Applied"];
+                        const { dateStr, timeStr, relativeLabel } = formatIndianDateTime(c.interviewDate);
 
-          {/* Table Footer Summary */}
-          <div className="bg-canvas-soft border-t border-hairline px-4 py-3 flex items-center justify-between text-xs text-ink-mute">
-            <div>
-              Showing <span className="font-semibold text-ink">{candidates.length}</span> active candidates in line-up
-            </div>
-            <div className="text-[11px]">
-              ATS Pipeline sync enabled
+                        return (
+                          <tr key={c.id} className="hover:bg-canvas-soft/70 transition-colors">
+                            <td className="py-3.5 px-4 whitespace-nowrap tabular-nums">
+                              {c.interviewDate ? (
+                                <div>
+                                  <div className="font-semibold text-primary flex items-center gap-1">
+                                    <Clock className="w-3 h-3" />
+                                    <span>{timeStr}</span>
+                                    {relativeLabel && (
+                                      <span className="text-[10px] px-1.5 py-0.2 bg-primary/10 rounded font-bold">
+                                        {relativeLabel}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="text-[11px] text-ink-mute">{dateStr}</div>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => openCandidateDrawer(c)}
+                                  className="text-[11px] text-primary hover:underline font-medium"
+                                >
+                                  + Set Schedule
+                                </button>
+                              )}
+                            </td>
+
+                            <td className="py-3.5 px-4">
+                              <div className="font-semibold text-ink text-[13px] flex items-center gap-1.5">
+                                <span>{c.fullName}</span>
+                                <span className="text-[10px] text-ink-mute font-mono font-normal">
+                                  ({c.id})
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2 text-[11px] text-ink-mute mt-0.5">
+                                <a
+                                  href={`tel:${c.phone}`}
+                                  className="hover:text-primary flex items-center gap-1 tabular-nums"
+                                >
+                                  <Phone className="w-2.5 h-2.5 text-emerald-600" />
+                                  {c.phone}
+                                </a>
+                                <span>•</span>
+                                <a
+                                  href={`https://wa.me/91${c.phone}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="hover:text-emerald-600 flex items-center gap-0.5 text-emerald-600 font-medium"
+                                >
+                                  <MessageCircle className="w-2.5 h-2.5" />
+                                  WhatsApp
+                                </a>
+                              </div>
+                              <div className="text-[10px] text-ink-mute flex items-center gap-1 mt-0.5">
+                                <MapPin className="w-2.5 h-2.5 text-primary" />
+                                <span>{c.location}</span>
+                              </div>
+                            </td>
+
+                            <td className="py-3.5 px-4">
+                              <span className="font-medium text-ink">{c.appliedRole}</span>
+                            </td>
+
+                            <td className="py-3.5 px-4 text-center whitespace-nowrap tabular-nums">
+                              <div className="font-medium text-ink">{c.experienceYears} Yrs</div>
+                              <div className="text-[10px] text-ink-mute">
+                                {c.noticePeriodDays === 0 ? "Immediate" : `${c.noticePeriodDays}d Notice`}
+                              </div>
+                            </td>
+
+                            <td className="py-3.5 px-4 whitespace-nowrap tabular-nums">
+                              <div className="text-ink text-[11px]">{c.currentCtc || "—"}</div>
+                              <div className="text-[10px] text-emerald-600 font-medium">
+                                Exp: {c.expectedCtc || "—"}
+                              </div>
+                            </td>
+
+                            <td className="py-3.5 px-4 whitespace-nowrap">
+                              <a
+                                href={c.resumeUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline bg-primary/5 px-2 py-1 rounded"
+                              >
+                                <FileText className="w-3 h-3" />
+                                <span>Drive Link</span>
+                                <ExternalLink className="w-2.5 h-2.5" />
+                              </a>
+                            </td>
+
+                            <td className="py-3.5 px-4 whitespace-nowrap">
+                              <select
+                                value={c.status}
+                                onChange={(e) => handleStatusChange(c.id, e.target.value)}
+                                className={`text-[11px] font-medium px-2.5 py-1 rounded-full border cursor-pointer focus:outline-none ${statusMeta.bg} ${statusMeta.text} ${statusMeta.border}`}
+                              >
+                                {STATUS_LIST.map((status) => (
+                                  <option key={status} value={status}>
+                                    {status}
+                                  </option>
+                                ))}
+                              </select>
+                            </td>
+
+                            <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                              <button
+                                onClick={() => openCandidateDrawer(c)}
+                                className="text-xs text-primary hover:underline font-medium inline-flex items-center gap-1"
+                              >
+                                <span>Schedule &amp; Notes</span>
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Table Footer */}
+              <div className="bg-canvas-soft border-t border-hairline px-4 py-3 flex items-center justify-between text-xs text-ink-mute">
+                <div>
+                  Showing <span className="font-semibold text-ink">{filteredCandidates.length}</span> candidates in line-up
+                </div>
+                <button
+                  onClick={() => setIsExportModalOpen(true)}
+                  className="text-primary hover:underline font-medium inline-flex items-center gap-1"
+                >
+                  <Download className="w-3 h-3" />
+                  <span>Download Manager Report (.xlsx)</span>
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </main>
 
-      {/* Candidate Details & Schedule Interview Modal */}
+      {/* Candidate Details & Schedule Drawer Modal */}
       {activeCandidate && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-ink/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-ink/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-fadeIn">
           <div className="w-full max-w-lg bg-canvas rounded-xl border border-hairline shadow-level3 overflow-hidden">
             <div className="bg-canvas-soft border-b border-hairline px-6 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center">
-                  <Briefcase className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-base font-semibold text-ink">
-                    Candidate Line-Up Dossier
-                  </h3>
-                  <p className="text-xs text-ink-mute">
-                    ID: {activeCandidate.id} • {activeCandidate.appliedRole}
-                  </p>
-                </div>
+              <div>
+                <h3 className="text-base font-semibold text-ink">
+                  Candidate Dossier &amp; Interview Slot
+                </h3>
+                <p className="text-xs text-ink-mute">
+                  ID: {activeCandidate.id} • {activeCandidate.appliedRole}
+                </p>
               </div>
               <button
                 onClick={() => setActiveCandidate(null)}
-                className="text-ink-mute hover:text-ink text-sm p-1 rounded"
+                className="text-ink-mute hover:text-ink text-sm p-1"
               >
                 ✕
               </button>
             </div>
 
             <div className="p-6 space-y-4">
-              {/* Candidate Quick Header */}
-              <div className="p-3.5 rounded-lg bg-canvas-soft border border-hairline flex items-center justify-between">
+              <div className="p-3 rounded-lg bg-canvas-soft border border-hairline flex items-center justify-between">
                 <div>
-                  <div className="font-semibold text-ink text-sm">
-                    {activeCandidate.fullName}
-                  </div>
+                  <div className="font-semibold text-ink text-sm">{activeCandidate.fullName}</div>
                   <div className="text-xs text-ink-mute">
                     {activeCandidate.location} • {activeCandidate.phone}
                   </div>
@@ -824,15 +894,14 @@ export default function AdminDashboardPage() {
                   className="btn-primary-pill text-xs py-1.5 px-3 inline-flex items-center gap-1 shadow-sm"
                 >
                   <FileText className="w-3.5 h-3.5" />
-                  <span>Open Resume</span>
+                  <span>Resume</span>
                 </a>
               </div>
 
-              {/* Schedule Interview */}
               <div>
                 <label className="block text-xs font-medium text-ink-secondary mb-1 flex items-center gap-1">
                   <Calendar className="w-3.5 h-3.5 text-primary" />
-                  <span>Schedule Interview Timestamp</span>
+                  <span>Scheduled Interview Date &amp; Time</span>
                 </label>
                 <input
                   type="datetime-local"
@@ -842,22 +911,19 @@ export default function AdminDashboardPage() {
                 />
               </div>
 
-              {/* Recruiter Notes */}
               <div>
-                <label className="block text-xs font-medium text-ink-secondary mb-1 flex items-center gap-1">
-                  <FileText className="w-3.5 h-3.5 text-primary" />
-                  <span>Recruiter Assessment &amp; Feedback Notes</span>
+                <label className="block text-xs font-medium text-ink-secondary mb-1">
+                  Recruiter Screening Assessment &amp; Manager Feedback
                 </label>
                 <textarea
                   rows={4}
-                  placeholder="e.g. Cleared round 1 screening. Communication is strong. Notice period negotiable to 15 days."
+                  placeholder="e.g. Cleared round 1 screening. Strong operational background. Slot confirmed with candidate."
                   value={editNotes}
                   onChange={(e) => setEditNotes(e.target.value)}
                   className="w-full text-xs p-3 rounded-sm border border-hairline-input focus:outline-none focus:border-primary bg-canvas text-ink leading-relaxed"
                 />
               </div>
 
-              {/* Modal Buttons */}
               <div className="pt-4 border-t border-hairline flex items-center justify-end gap-2">
                 <button
                   type="button"
@@ -887,123 +953,27 @@ export default function AdminDashboardPage() {
         </div>
       )}
 
-      {/* Google Sheets Webhook Integration Modal */}
-      {isSyncModalOpen && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-ink/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
-          <div className="w-full max-w-2xl bg-canvas rounded-xl border border-hairline shadow-level3 overflow-hidden">
-            <div className="bg-canvas-soft border-b border-hairline px-6 py-4 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center">
-                  <FileSpreadsheet className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-base font-semibold text-ink">
-                    Google Sheets Real-Time Sync Configuration
-                  </h3>
-                  <p className="text-xs text-ink-mute">
-                    Stream every new applicant directly into your shared team Google Spreadsheet
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setIsSyncModalOpen(false)}
-                className="text-ink-mute hover:text-ink text-sm p-1 rounded"
-              >
-                ✕
-              </button>
-            </div>
+      {/* Add Candidate Modal */}
+      <AddCandidateModal
+        isOpen={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        onCandidateAdded={handleCandidateAdded}
+      />
 
-            <div className="p-6 space-y-5 text-xs">
-              {/* Step instructions */}
-              <div className="bg-canvas-soft border border-hairline rounded-lg p-4 space-y-2">
-                <div className="font-semibold text-ink text-sm mb-1">
-                  How to link your Google Sheet:
-                </div>
-                <ol className="list-decimal list-inside space-y-1 text-ink-secondary leading-relaxed">
-                  <li>Open your Google Sheet where candidates should appear.</li>
-                  <li>Click <strong>Extensions</strong> → <strong>Apps Script</strong>.</li>
-                  <li>Copy and paste the Google Apps Script code below.</li>
-                  <li>Click <strong>Deploy</strong> → <strong>New deployment</strong> → Select type <strong>Web app</strong>.</li>
-                  <li>Set <em>Execute as</em>: <strong>Me</strong> and <em>Who has access</em>: <strong>Anyone</strong>.</li>
-                  <li>Copy the resulting Web App URL and paste it in your Vercel/environment variables as <code className="text-primary font-mono">GOOGLE_SHEETS_WEBHOOK_URL</code>.</li>
-                </ol>
-              </div>
+      {/* Manager Export Modal */}
+      <ManagerExportModal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        candidates={candidates}
+      />
 
-              {/* Code snippet block */}
-              <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <span className="font-semibold text-ink">
-                    Google Apps Script Code (Code.gs):
-                  </span>
-                  <button
-                    onClick={copyScriptCode}
-                    className="btn-secondary-pill text-[11px] py-1 px-2.5 inline-flex items-center gap-1"
-                  >
-                    {copiedCode ? (
-                      <>
-                        <Check className="w-3 h-3 text-emerald-600" />
-                        <span className="text-emerald-600">Copied!</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3 h-3 text-primary" />
-                        <span>Copy Script</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-                <pre className="p-3 bg-brand-dark text-slate-200 rounded-md font-mono text-[11px] max-h-48 overflow-y-auto leading-tight">
-                  {GOOGLE_APPS_SCRIPT_TEMPLATE}
-                </pre>
-              </div>
-
-              {/* Test Webhook Connection */}
-              <div className="pt-3 border-t border-hairline">
-                <label className="block font-semibold text-ink mb-1">
-                  Test Webhook Connection URL:
-                </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="url"
-                    placeholder="https://script.google.com/macros/s/.../exec"
-                    value={testWebhookUrl}
-                    onChange={(e) => setTestWebhookUrl(e.target.value)}
-                    className="flex-1 text-xs px-3 py-2 rounded-sm border border-hairline-input focus:outline-none focus:border-primary bg-canvas text-ink"
-                  />
-                  <button
-                    onClick={handleTestWebhook}
-                    disabled={testingWebhook}
-                    className="btn-primary-pill text-xs py-2 px-4 whitespace-nowrap inline-flex items-center gap-1.5 shadow-sm disabled:opacity-70"
-                  >
-                    {testingWebhook ? (
-                      <>
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        <span>Testing...</span>
-                      </>
-                    ) : (
-                      <span>Send Ping Test</span>
-                    )}
-                  </button>
-                </div>
-                <p className="text-[11px] text-ink-mute mt-1">
-                  Sends a sample test candidate to verify your Google Sheet receives incoming rows.
-                </p>
-              </div>
-
-              {/* Close Button */}
-              <div className="pt-3 border-t border-hairline flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => setIsSyncModalOpen(false)}
-                  className="btn-secondary-pill text-xs px-5 py-2"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Sticky Bottom Navigation for Mobile */}
+      <MobileBottomNav
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        onOpenAddModal={() => setIsAddModalOpen(true)}
+        onOpenExportModal={() => setIsExportModalOpen(true)}
+      />
     </div>
   );
 }
