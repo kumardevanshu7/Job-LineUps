@@ -1,0 +1,177 @@
+"use client";
+
+import React, { useState, useRef, useEffect } from "react";
+import { ChevronDown, Check } from "lucide-react";
+import { CandidateStatus } from "@/lib/types";
+
+export interface StatusStyleMeta {
+  label: string;
+  dotColor: string;
+  pillBg: string;
+  pillText: string;
+  pillBorder: string;
+}
+
+export const STATUS_META_MAP: Record<string, StatusStyleMeta> = {
+  "New Applied": {
+    label: "New Applied",
+    dotColor: "bg-blue-600",
+    pillBg: "bg-blue-50",
+    pillText: "text-blue-700",
+    pillBorder: "border-blue-200",
+  },
+  "Screening Shortlisted": {
+    label: "Screening Shortlisted",
+    dotColor: "bg-purple-600",
+    pillBg: "bg-purple-50",
+    pillText: "text-purple-700",
+    pillBorder: "border-purple-200",
+  },
+  "Line-Up Scheduled": {
+    label: "Line-Up Scheduled",
+    dotColor: "bg-[#533afd]",
+    pillBg: "bg-primary-subdued/70",
+    pillText: "text-primary-deep",
+    pillBorder: "border-primary-subdued",
+  },
+  "Interview Done": {
+    label: "Interview Done",
+    dotColor: "bg-cyan-600",
+    pillBg: "bg-cyan-50",
+    pillText: "text-cyan-700",
+    pillBorder: "border-cyan-200",
+  },
+  Selected: {
+    label: "Selected",
+    dotColor: "bg-emerald-600",
+    pillBg: "bg-emerald-50",
+    pillText: "text-emerald-700",
+    pillBorder: "border-emerald-200",
+  },
+  Rejected: {
+    label: "Rejected",
+    dotColor: "bg-rose-500",
+    pillBg: "bg-rose-50",
+    pillText: "text-rose-700",
+    pillBorder: "border-rose-200",
+  },
+};
+
+export const STATUS_LIST: CandidateStatus[] = [
+  "New Applied",
+  "Screening Shortlisted",
+  "Line-Up Scheduled",
+  "Interview Done",
+  "Selected",
+  "Rejected",
+];
+
+interface CandidateStatusDropdownProps {
+  currentStatus: string;
+  onSelectStatus?: (newStatus: string) => void;
+  onStatusChange?: (newStatus: string) => void;
+  className?: string;
+  disabled?: boolean;
+}
+
+export default function CandidateStatusDropdown({
+  currentStatus,
+  onSelectStatus,
+  onStatusChange,
+  className = "",
+  disabled = false,
+}: CandidateStatusDropdownProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const meta = STATUS_META_MAP[currentStatus] || STATUS_META_MAP["New Applied"];
+
+  const handleSelect = (newStatus: string) => {
+    if (onStatusChange) onStatusChange(newStatus);
+    if (onSelectStatus) onSelectStatus(newStatus);
+  };
+
+  // Click outside to close
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    if (isOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isOpen]);
+
+  return (
+    <div ref={dropdownRef} className={`relative inline-block text-left ${className}`}>
+      {/* Pill trigger */}
+      <button
+        type="button"
+        disabled={disabled}
+        onClick={() => setIsOpen((prev) => !prev)}
+        className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border flex items-center justify-between gap-1.5 shadow-2xs transition-all focus:outline-none shrink-0 ${
+          meta.pillBg
+        } ${meta.pillText} ${meta.pillBorder} ${
+          disabled ? "opacity-60 cursor-not-allowed" : "hover:brightness-95 cursor-pointer active:scale-95"
+        }`}
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+      >
+        <span className="flex items-center gap-1.5">
+          <span className={`w-2 h-2 rounded-full shrink-0 ${meta.dotColor}`} />
+          <span className="truncate">{meta.label}</span>
+        </span>
+        <ChevronDown
+          className={`w-3 h-3 transition-transform shrink-0 ${
+            isOpen ? "rotate-180" : ""
+          }`}
+        />
+      </button>
+
+      {/* Floating Menu with colored dots */}
+      {isOpen && (
+        <div
+          role="listbox"
+          className="absolute right-0 sm:left-0 top-full mt-1.5 w-48 rounded-xl bg-white border border-hairline shadow-level3 py-1.5 z-50 animate-in fade-in-50 zoom-in-95 duration-100"
+        >
+          <div className="px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-ink-mute border-b border-hairline mb-1">
+            Pipeline Stage
+          </div>
+          {STATUS_LIST.map((status) => {
+            const itemMeta = STATUS_META_MAP[status] || STATUS_META_MAP["New Applied"];
+            const isSelected = status === currentStatus;
+            return (
+              <button
+                key={status}
+                type="button"
+                role="option"
+                aria-selected={isSelected}
+                onClick={() => {
+                  setIsOpen(false);
+                  if (status !== currentStatus) {
+                    handleSelect(status);
+                  }
+                }}
+                className={`w-full text-left px-3 py-1.5 text-xs flex items-center justify-between transition-colors ${
+                  isSelected
+                    ? "bg-primary/10 text-primary font-semibold"
+                    : "text-ink hover:bg-canvas-soft"
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${itemMeta.dotColor}`} />
+                  <span>{itemMeta.label}</span>
+                </span>
+                {isSelected && <Check className="w-3.5 h-3.5 text-primary shrink-0" />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}

@@ -34,6 +34,9 @@ export interface CandidateItem {
   status: CandidateStatus | string;
   interviewDate?: string | Date | null;
   recruiterNotes?: string | null;
+  rescheduleCount?: number;
+  rescheduleReason?: string | null;
+  rejectionReason?: string | null; // Why candidate was not selected
   createdAt: string | Date;
   updatedAt?: string | Date;
 }
@@ -72,4 +75,34 @@ export interface RecruiterProfile {
   completedOnboarding: boolean;
   updatedAt?: string;
 }
+
+export interface ActivityLogItem {
+  id: string;
+  action:
+    | "STATUS_CHANGE"
+    | "RESCHEDULE"
+    | "CANDIDATE_ADDED"
+    | "CANDIDATE_DELETED"
+    | "NOTES_UPDATED"
+    | "REJECTION_REASON_SAVED"
+    | "SETTINGS_UPDATED";
+  candidateId?: string;
+  candidateName?: string;
+  details: string;
+  previousValue?: string;
+  newValue?: string;
+  glowColor: "emerald" | "blue" | "purple" | "indigo" | "cyan" | "rose" | "amber";
+  timestamp: string;
+  recruiterName?: string;
+}
+
+export interface AppSettings {
+  securityPin: string; // Default "1234"
+  pinProtectionEnabled: boolean; // Default true
+  requirePinForStatus?: boolean;
+  requirePinForDelete?: boolean;
+  webhookUrl?: string;
+  updatedAt?: string;
+}
+
 

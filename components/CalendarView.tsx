@@ -180,38 +180,51 @@ export default function CalendarView({
                 <button
                   key={`day-${dayNum}`}
                   onClick={() => setSelectedDate(thisDate)}
-                  className={`h-12 sm:h-20 p-1 sm:p-1.5 rounded-md sm:rounded-lg border text-left flex flex-col justify-between transition-all group ${
+                  className={`min-h-[56px] sm:min-h-[76px] p-1 sm:p-2 rounded-lg border text-left flex flex-col justify-between transition-all group relative overflow-hidden ${
                     isSelected
-                      ? "border-primary bg-primary/10 ring-2 ring-primary/30 shadow-sm"
+                      ? "border-primary bg-primary/10 ring-2 ring-primary/40 shadow-sm z-10"
                       : isCurrentDay
-                      ? "border-primary-subdued bg-primary-subdued/20"
-                      : "border-hairline bg-canvas hover:border-ink-mute/40 hover:bg-canvas-soft/60"
+                      ? "border-primary-subdued bg-primary-subdued/25 ring-1 ring-primary/20"
+                      : count > 0
+                      ? "border-primary/25 bg-primary/[0.03] hover:bg-primary/[0.08]"
+                      : "border-hairline bg-canvas hover:border-ink-mute/30 hover:bg-canvas-soft/70"
                   }`}
                 >
+                  {/* Day number */}
                   <div className="flex items-center justify-between w-full">
                     <span
-                      className={`text-[11px] sm:text-xs font-semibold tabular-nums w-5 h-5 flex items-center justify-center rounded-full ${
+                      className={`text-[11px] sm:text-xs font-semibold tabular-nums w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center rounded-full leading-none transition-colors ${
                         isCurrentDay
-                          ? "bg-primary text-white"
+                          ? "bg-primary text-white shadow-xs font-bold"
                           : isSelected
-                          ? "text-primary font-bold"
+                          ? "text-primary font-bold bg-primary/15"
                           : "text-ink"
                       }`}
                     >
                       {dayNum}
                     </span>
 
+                    {/* Desktop count pill */}
                     {count > 0 && (
-                      <span className="text-[9px] sm:text-[10px] font-bold bg-primary text-white rounded-full px-1.5 py-0.2 shadow-sm leading-none">
-                        {count}
+                      <span className="hidden sm:inline-flex text-[10px] font-bold bg-primary text-white rounded-full px-1.5 py-0.5 leading-none shadow-xs">
+                        {count} {count === 1 ? "slot" : "slots"}
                       </span>
                     )}
                   </div>
 
-                  {/* Desktop Preview */}
+                  {/* Mobile Candidate Indicator Pill (Centered cleanly beneath day number) */}
+                  {count > 0 && (
+                    <div className="sm:hidden flex justify-center w-full mt-auto pb-0.5">
+                      <span className="inline-flex items-center justify-center min-w-4 h-4 px-1 rounded-full text-[9px] font-bold bg-primary text-white shadow-xs tabular-nums leading-none">
+                        {count}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Desktop Preview of candidate name */}
                   <div className="hidden sm:block w-full truncate mt-auto">
                     {count > 0 ? (
-                      <div className="text-[10px] text-primary truncate font-medium">
+                      <div className="text-[10px] text-primary font-medium truncate bg-white/80 rounded px-1 py-0.5 border border-primary/20">
                         {dayCandidates[0].fullName}
                         {count > 1 && ` +${count - 1}`}
                       </div>

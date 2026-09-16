@@ -221,20 +221,21 @@ export async function createCandidate(
 
 export async function updateCandidate(
   id: string,
-  data: Partial<Pick<CandidateItem, "status" | "interviewDate" | "recruiterNotes">>
+  data: Partial<CandidateItem>
 ): Promise<CandidateItem | null> {
   try {
+    const updatePayload: Record<string, unknown> = {};
+    if (data.status !== undefined) updatePayload.status = data.status;
+    if (data.interviewDate !== undefined) {
+      updatePayload.interviewDate = data.interviewDate ? new Date(data.interviewDate) : null;
+    }
+    if (data.recruiterNotes !== undefined) updatePayload.recruiterNotes = data.recruiterNotes;
+    if (data.currentCtc !== undefined) updatePayload.currentCtc = data.currentCtc;
+    if (data.expectedCtc !== undefined) updatePayload.expectedCtc = data.expectedCtc;
+
     const updated = await prisma.candidate.update({
       where: { id },
-      data: {
-        ...(data.status ? { status: data.status } : {}),
-        ...(data.interviewDate !== undefined
-          ? { interviewDate: data.interviewDate ? new Date(data.interviewDate) : null }
-          : {}),
-        ...(data.recruiterNotes !== undefined
-          ? { recruiterNotes: data.recruiterNotes }
-          : {}),
-      },
+      data: updatePayload,
     });
     return {
       id: updated.id,
@@ -251,6 +252,9 @@ export async function updateCandidate(
       status: updated.status,
       interviewDate: updated.interviewDate ? updated.interviewDate.toISOString() : null,
       recruiterNotes: updated.recruiterNotes,
+      rescheduleCount: data.rescheduleCount,
+      rescheduleReason: data.rescheduleReason,
+      rejectionReason: data.rejectionReason,
       createdAt: updated.createdAt.toISOString(),
       updatedAt: updated.updatedAt.toISOString(),
     };
@@ -266,6 +270,22 @@ export async function updateCandidate(
       return memoryCandidates[index];
     }
     return null;
+  }
+}
+
+export async function deleteCandidate(id: string): Promise<boolean> {
+  try {
+    await prisma.candidate.delete({
+      where: { id },
+    });
+    return true;
+  } catch (err) {
+    const index = memoryCandidates.findIndex((c) => c.id === id);
+    if (index !== -1) {
+      memoryCandidates.splice(index, 1);
+      return true;
+    }
+    return false;
   }
 }
 

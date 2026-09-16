@@ -8,6 +8,8 @@ import {
   FileSpreadsheet,
   LogOut,
   ArrowLeft,
+  Activity,
+  Settings,
 } from "lucide-react";
 import { User } from "firebase/auth";
 import { RecruiterProfile } from "@/lib/types";
@@ -17,8 +19,8 @@ import BrandLogo from "./BrandLogo";
 interface RecruiterNavbarProps {
   onOpenAddModal: () => void;
   onOpenExportModal: () => void;
-  activeTab: "LINEUP" | "CALENDAR";
-  onTabChange: (tab: "LINEUP" | "CALENDAR") => void;
+  activeTab: "LINEUP" | "CALENDAR" | "LOGS" | "SETTINGS";
+  onTabChange: (tab: "LINEUP" | "CALENDAR" | "LOGS" | "SETTINGS") => void;
   currentUser?: User | null;
   recruiterProfile?: RecruiterProfile | null;
   onOpenProfileModal?: () => void;
@@ -81,9 +83,9 @@ export default function RecruiterNavbar({
         <div className="hidden md:flex items-center gap-1 bg-canvas-soft p-1 rounded-pill border border-hairline text-xs font-medium">
           <button
             onClick={() => onTabChange("LINEUP")}
-            className={`px-4 py-1.5 rounded-pill transition-all ${
+            className={`px-3.5 py-1.5 rounded-pill transition-all ${
               activeTab === "LINEUP"
-                ? "bg-brand-dark text-white shadow-sm"
+                ? "bg-brand-dark text-white shadow-sm font-semibold"
                 : "text-ink-secondary hover:text-ink"
             }`}
           >
@@ -91,13 +93,39 @@ export default function RecruiterNavbar({
           </button>
           <button
             onClick={() => onTabChange("CALENDAR")}
-            className={`px-4 py-1.5 rounded-pill transition-all ${
+            className={`px-3.5 py-1.5 rounded-pill transition-all ${
               activeTab === "CALENDAR"
-                ? "bg-brand-dark text-white shadow-sm"
+                ? "bg-brand-dark text-white shadow-sm font-semibold"
                 : "text-ink-secondary hover:text-ink"
             }`}
           >
             Interview Calendar
+          </button>
+          <button
+            onClick={() => onTabChange("LOGS")}
+            className={`px-3.5 py-1.5 rounded-pill transition-all flex items-center gap-1.5 ${
+              activeTab === "LOGS"
+                ? "bg-brand-dark text-white shadow-sm font-semibold"
+                : "text-ink-secondary hover:text-ink"
+            }`}
+          >
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.9)]"></span>
+            </span>
+            <span>Activity Logs</span>
+          </button>
+          <button
+            onClick={() => onTabChange("SETTINGS")}
+            className={`px-3 py-1.5 rounded-pill transition-all flex items-center gap-1 ${
+              activeTab === "SETTINGS"
+                ? "bg-brand-dark text-white shadow-sm font-semibold"
+                : "text-ink-secondary hover:text-ink"
+            }`}
+            title="Settings & Security PIN"
+          >
+            <Settings className="w-3.5 h-3.5" />
+            <span>Settings</span>
           </button>
         </div>
 

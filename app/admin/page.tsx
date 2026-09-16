@@ -9,6 +9,11 @@ import OnboardingModal from "@/components/OnboardingModal";
 import MobileBottomNav from "@/components/MobileBottomNav";
 import GoogleAuthGate from "@/components/GoogleAuthGate";
 import StatusFilterDropdown from "@/components/StatusFilterDropdown";
+import CandidateStatusDropdown from "@/components/CandidateStatusDropdown";
+import CandidateDossierModal from "@/components/CandidateDossierModal";
+import SecurityPinModal from "@/components/SecurityPinModal";
+import SettingsTab from "@/components/SettingsTab";
+import ActivityLogsTab from "@/components/ActivityLogsTab";
 import {
   Search,
   RefreshCw,
@@ -24,10 +29,20 @@ import {
   CheckCircle2,
   Briefcase,
   Loader2,
-  Settings,
+  Settings as SettingsIcon,
+  RotateCcw,
+  Eye,
+  Trash2,
+  Activity,
 } from "lucide-react";
 import { toast } from "sonner";
-import { CandidateItem, CandidateStats, RecruiterProfile } from "@/lib/types";
+import {
+  CandidateItem,
+  CandidateStats,
+  RecruiterProfile,
+  ActivityLogItem,
+  AppSettings,
+} from "@/lib/types";
 import { isToday, isTomorrow, isThisWeek, formatIndianDateTime } from "@/lib/date-utils";
 import {
   onRecruiterAuthStateChanged,
@@ -36,8 +51,55 @@ import {
   updateCandidateInFirestore,
   saveRecruiterProfileToFirestore,
   getRecruiterProfileFromFirestore,
+  deleteCandidateFromFirestore,
+  saveActivityLogToFirestore,
+  getActivityLogsFromFirestore,
+  saveSettingsToFirestore,
+  getSettingsFromFirestore,
 } from "@/lib/firebase";
 import { User } from "firebase/auth";
+
+const PASTEL_CARD_THEMES: Record<
+  string,
+  { cardBg: string; cardBorder: string; badgeBg: string; badgeText: string }
+> = {
+  "New Applied": {
+    cardBg: "bg-blue-50/60",
+    cardBorder: "border-blue-200/80 hover:border-blue-300",
+    badgeBg: "bg-blue-100",
+    badgeText: "text-blue-800",
+  },
+  "Screening Shortlisted": {
+    cardBg: "bg-purple-50/60",
+    cardBorder: "border-purple-200/80 hover:border-purple-300",
+    badgeBg: "bg-purple-100",
+    badgeText: "text-purple-800",
+  },
+  "Line-Up Scheduled": {
+    cardBg: "bg-indigo-50/60",
+    cardBorder: "border-indigo-200/80 hover:border-indigo-300",
+    badgeBg: "bg-primary-subdued/80",
+    badgeText: "text-primary-deep",
+  },
+  "Interview Done": {
+    cardBg: "bg-cyan-50/60",
+    cardBorder: "border-cyan-200/80 hover:border-cyan-300",
+    badgeBg: "bg-cyan-100",
+    badgeText: "text-cyan-800",
+  },
+  Selected: {
+    cardBg: "bg-emerald-50/60",
+    cardBorder: "border-emerald-200/80 hover:border-emerald-300",
+    badgeBg: "bg-emerald-100",
+    badgeText: "text-emerald-800",
+  },
+  Rejected: {
+    cardBg: "bg-rose-50/60",
+    cardBorder: "border-rose-200/80 hover:border-rose-300",
+    badgeBg: "bg-rose-100",
+    badgeText: "text-rose-800",
+  },
+};
 
 const STATUS_CONFIG: Record<
   string,
@@ -109,17 +171,32 @@ export default function RecruiterAdminPage() {
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState<"LINEUP" | "CALENDAR">("LINEUP");
+  const [activeTab, setActiveTab] = useState<"LINEUP" | "CALENDAR" | "LOGS" | "SETTINGS">("LINEUP");
 
   // Modals & Profile
   const [recruiterProfile, setRecruiterProfile] = useState<RecruiterProfile | null>(null);
   const [isOnboardingModalOpen, setIsOnboardingModalOpen] = useState(false);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
-  const [activeCandidate, setActiveCandidate] = useState<CandidateItem | null>(null);
-  const [editNotes, setEditNotes] = useState("");
-  const [editInterviewDate, setEditInterviewDate] = useState("");
-  const [savingDetails, setSavingDetails] = useState(false);
+
+  // PIN Protection State
+  const [settings, setSettings] = useState<AppSettings>({
+    securityPin: "1234",
+    pinProtectionEnabled: true,
+    requirePinForStatus: true,
+    requirePinForDelete: true,
+  });
+  const [isPinModalOpen, setIsPinModalOpen] = useState(false);
+  const [pinModalTitle, setPinModalTitle] = useState("Security Verification");
+  const [pinModalDescription, setPinModalDescription] = useState("");
+  const [pendingPinAction, setPendingPinAction] = useState<(() => Promise<void> | void) | null>(null);
+
+  // Candidate Dossier Modal State
+  const [isDossierModalOpen, setIsDossierModalOpen] = useState(false);
+  const [dossierCandidate, setDossierCandidate] = useState<CandidateItem | null>(null);
+
+  // Activity Logs
+  const [logs, setLogs] = useState<ActivityLogItem[]>([]);
 
   // Filters
   const [searchQuery, setSearchQuery] = useState("");
@@ -134,7 +211,7 @@ export default function RecruiterAdminPage() {
       setAuthLoading(false);
 
       if (user) {
-        // 1. Try local cache for immediate render
+        // 1. Profile
         const localKey = `recruiter_profile_${user.uid}`;
         let profileFound: RecruiterProfile | null = null;
         const cached = typeof window !== "undefined" ? localStorage.getItem(localKey) : null;
@@ -147,7 +224,6 @@ export default function RecruiterAdminPage() {
           }
         }
 
-        // 2. Fetch from Cloud Firestore
         try {
           const remote = await getRecruiterProfileFromFirestore(user.uid);
           if (remote) {
@@ -161,12 +237,47 @@ export default function RecruiterAdminPage() {
           console.warn("Error fetching remote profile:", e);
         }
 
-        // 3. Prompt Onboarding if not completed
+        // 2. Settings (PIN & Rules)
+        const localSettingsKey = `app_settings_${user.uid}`;
+        const cachedSettings = typeof window !== "undefined" ? localStorage.getItem(localSettingsKey) : null;
+        if (cachedSettings) {
+          try {
+            setSettings(JSON.parse(cachedSettings));
+          } catch (e) {}
+        }
+        getSettingsFromFirestore().then((remoteSettings) => {
+          if (remoteSettings) {
+            setSettings(remoteSettings);
+            if (typeof window !== "undefined") {
+              localStorage.setItem(localSettingsKey, JSON.stringify(remoteSettings));
+            }
+          }
+        }).catch((e) => console.warn("Error fetching remote settings:", e));
+
+        // 3. Activity Logs
+        const localLogsKey = `activity_logs_${user.uid}`;
+        const cachedLogs = typeof window !== "undefined" ? localStorage.getItem(localLogsKey) : null;
+        if (cachedLogs) {
+          try {
+            setLogs(JSON.parse(cachedLogs));
+          } catch (e) {}
+        }
+        getActivityLogsFromFirestore().then((remoteLogs) => {
+          if (remoteLogs && remoteLogs.length > 0) {
+            setLogs(remoteLogs);
+            if (typeof window !== "undefined") {
+              localStorage.setItem(localLogsKey, JSON.stringify(remoteLogs));
+            }
+          }
+        }).catch((e) => console.warn("Error fetching remote logs:", e));
+
+        // 4. Prompt Onboarding if not completed
         if (!profileFound || !profileFound.completedOnboarding) {
           setIsOnboardingModalOpen(true);
         }
       } else {
         setRecruiterProfile(null);
+        setLogs([]);
       }
     });
     return () => unsubscribe();
@@ -180,11 +291,92 @@ export default function RecruiterAdminPage() {
     }
   };
 
+  const handleSaveSettings = async (newSettings: AppSettings) => {
+    setSettings(newSettings);
+    if (currentUser && typeof window !== "undefined") {
+      localStorage.setItem(`app_settings_${currentUser.uid}`, JSON.stringify(newSettings));
+      await saveSettingsToFirestore(newSettings);
+    }
+  };
+
+  const addLog = (
+    action: ActivityLogItem["action"],
+    candidateName: string,
+    details: string,
+    extra?: {
+      candidateId?: string;
+      role?: string;
+      oldStage?: string;
+      newStage?: string;
+      glowColor?: "emerald" | "blue" | "purple" | "indigo" | "cyan" | "rose" | "amber";
+    }
+  ) => {
+    let color: "emerald" | "blue" | "purple" | "indigo" | "cyan" | "rose" | "amber" = extra?.glowColor || "blue";
+    if (!extra?.glowColor) {
+      if (extra?.newStage === "Selected") color = "emerald";
+      else if (extra?.newStage === "Rejected" || action === "CANDIDATE_DELETED") color = "rose";
+      else if (extra?.newStage === "Line-Up Scheduled") color = "indigo";
+      else if (extra?.newStage === "Screening Shortlisted") color = "purple";
+      else if (extra?.newStage === "Interview Done") color = "cyan";
+      else if (action === "RESCHEDULE") color = "amber";
+    }
+
+    const newLog: ActivityLogItem = {
+      id: `log-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      timestamp: new Date().toISOString(),
+      recruiterName: recruiterProfile?.name || currentUser?.displayName || "Recruiter",
+      action,
+      candidateName,
+      candidateId: extra?.candidateId,
+      details,
+      previousValue: extra?.oldStage,
+      newValue: extra?.newStage,
+      glowColor: color,
+    };
+
+    setLogs((prev) => {
+      const updated = [newLog, ...prev];
+      if (currentUser && typeof window !== "undefined") {
+        localStorage.setItem(`activity_logs_${currentUser.uid}`, JSON.stringify(updated.slice(0, 200)));
+      }
+      return updated;
+    });
+
+    if (currentUser) {
+      saveActivityLogToFirestore(newLog).catch((e) =>
+        console.warn("Error saving log to Firestore:", e)
+      );
+    }
+  };
+
+  const handleClearLogs = () => {
+    setLogs([]);
+    if (currentUser && typeof window !== "undefined") {
+      localStorage.removeItem(`activity_logs_${currentUser.uid}`);
+    }
+    toast.success("Activity logs cleared");
+  };
+
+  const handleExportLogs = () => {
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(logs, null, 2));
+    const downloadAnchor = document.createElement("a");
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute(
+      "download",
+      `TalentFlow_Audit_Logs_${new Date().toISOString().slice(0, 10)}.json`
+    );
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+    toast.success("Exported activity logs as JSON");
+  };
+
   const handleSignOut = async () => {
     try {
       await logOutRecruiter();
       setCurrentUser(null);
       setRecruiterProfile(null);
+      setLogs([]);
       toast.info("Signed out from Google Account");
     } catch (err) {
       toast.error("Failed to sign out");
@@ -222,20 +414,71 @@ export default function RecruiterAdminPage() {
     fetchCandidates();
   };
 
-  // Status Change
-  const handleStatusChange = async (candidateId: string, newStatus: string) => {
+  // PIN Protection Guard
+  const requestProtectedAction = (
+    title: string,
+    description: string,
+    isDelete: boolean,
+    action: () => Promise<void> | void
+  ) => {
+    if (!settings.pinProtectionEnabled) {
+      action();
+      return;
+    }
+    const isRequired = isDelete ? (settings.requirePinForDelete ?? true) : (settings.requirePinForStatus ?? true);
+    if (!isRequired) {
+      action();
+      return;
+    }
+
+    setPinModalTitle(title);
+    setPinModalDescription(description);
+    setPendingPinAction(() => action);
+    setIsPinModalOpen(true);
+  };
+
+  // Status Change with PIN Verification
+  const requestStatusChangeWithPin = (candidate: CandidateItem, newStatus: string) => {
+    if (candidate.status === newStatus) return;
+
+    requestProtectedAction(
+      `Confirm Status Change`,
+      `Enter your 4-digit Security PIN to move "${candidate.fullName}" to "${newStatus}".`,
+      false,
+      () => executeStatusChange(candidate, newStatus)
+    );
+  };
+
+  const executeStatusChange = async (candidate: CandidateItem, newStatus: string) => {
+    const oldStatus = candidate.status;
     // Optimistic UI update
     setCandidates((prev) =>
-      prev.map((c) => (c.id === candidateId ? { ...c, status: newStatus } : c))
+      prev.map((c) => (c.id === candidate.id ? { ...c, status: newStatus } : c))
     );
+    if (dossierCandidate && dossierCandidate.id === candidate.id) {
+      setDossierCandidate((prev) => (prev ? { ...prev, status: newStatus } : null));
+    }
 
     // Sync to Firestore
-    updateCandidateInFirestore(candidateId, { status: newStatus }).catch((e) =>
+    updateCandidateInFirestore(candidate.id, { status: newStatus }).catch((e) =>
       console.warn("Firestore sync error:", e)
     );
 
+    // Audit Log
+    addLog(
+      "STATUS_CHANGE",
+      candidate.fullName,
+      `Pipeline stage updated from "${oldStatus}" to "${newStatus}"`,
+      {
+        candidateId: candidate.id,
+        role: candidate.appliedRole,
+        oldStage: oldStatus,
+        newStage: newStatus,
+      }
+    );
+
     try {
-      const res = await fetch(`/api/candidates/${candidateId}`, {
+      const res = await fetch(`/api/candidates/${candidate.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: newStatus }),
@@ -254,59 +497,172 @@ export default function RecruiterAdminPage() {
     }
   };
 
-  // Save Candidate Notes & Interview Schedule
-  const handleSaveDetails = async () => {
-    if (!activeCandidate) return;
-
-    setSavingDetails(true);
-    try {
-      const interviewIso = editInterviewDate
-        ? new Date(editInterviewDate).toISOString()
-        : null;
-
-      // Update Firestore
-      updateCandidateInFirestore(activeCandidate.id, {
-        recruiterNotes: editNotes,
-        interviewDate: interviewIso,
-      }).catch((e) => console.warn("Firestore update error:", e));
-
-      const res = await fetch(`/api/candidates/${activeCandidate.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          recruiterNotes: editNotes,
-          interviewDate: interviewIso,
-        }),
-      });
-
-      const data = await res.json();
-      if (res.ok && data.success) {
-        toast.success("Candidate notes & schedule saved successfully!");
-        setActiveCandidate(null);
-        fetchCandidates();
-      } else {
-        throw new Error(data.error || "Save failed");
-      }
-    } catch (err) {
-      toast.error("Failed to save candidate details.");
-    } finally {
-      setSavingDetails(false);
-    }
-  };
-
-  const openCandidateDrawer = (candidate: CandidateItem) => {
-    setActiveCandidate(candidate);
-    setEditNotes(candidate.recruiterNotes || "");
-    setEditInterviewDate(
-      candidate.interviewDate
-        ? new Date(candidate.interviewDate).toISOString().slice(0, 16)
-        : ""
+  // Delete Candidate with PIN
+  const requestDeleteWithPin = (candidate: CandidateItem) => {
+    requestProtectedAction(
+      `Delete Candidate Record`,
+      `Enter your 4-digit Security PIN to permanently delete "${candidate.fullName}" (${candidate.id}) from your line-up roster.`,
+      true,
+      () => executeDeleteCandidate(candidate)
     );
   };
 
+  const executeDeleteCandidate = async (candidate: CandidateItem) => {
+    // Optimistic UI update
+    setCandidates((prev) => prev.filter((c) => c.id !== candidate.id));
+    if (dossierCandidate?.id === candidate.id) {
+      setIsDossierModalOpen(false);
+      setDossierCandidate(null);
+    }
+
+    // Firestore deletion
+    deleteCandidateFromFirestore(candidate.id).catch((e) =>
+      console.warn("Firestore candidate delete error:", e)
+    );
+
+    // Audit Log
+    addLog(
+      "CANDIDATE_DELETED",
+      candidate.fullName,
+      `Candidate record permanently removed from pipeline`,
+      {
+        candidateId: candidate.id,
+        role: candidate.appliedRole,
+        oldStage: candidate.status,
+      }
+    );
+
+    try {
+      const res = await fetch(`/api/candidates/${candidate.id}`, {
+        method: "DELETE",
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        toast.success(`Candidate ${candidate.fullName} deleted successfully`);
+        fetchCandidates();
+      } else {
+        throw new Error(data.error || "Delete failed");
+      }
+    } catch (err) {
+      toast.error("Failed to delete candidate on server");
+      fetchCandidates();
+    }
+  };
+
+  // Save Dossier from Modal (Notes, Reasons, Rejection details)
+  const handleSaveDossier = async (candidateId: string, updates: Partial<CandidateItem>) => {
+    setCandidates((prev) =>
+      prev.map((c) => (c.id === candidateId ? { ...c, ...updates } : c))
+    );
+    if (dossierCandidate && dossierCandidate.id === candidateId) {
+      setDossierCandidate((prev) => (prev ? { ...prev, ...updates } : null));
+    }
+
+    updateCandidateInFirestore(candidateId, updates).catch((e) =>
+      console.warn("Firestore dossier update error:", e)
+    );
+
+    const target = candidates.find((c) => c.id === candidateId);
+    const action = updates.rejectionReason
+      ? "REJECTION_REASON_SAVED"
+      : updates.status
+      ? "STATUS_CHANGE"
+      : "NOTES_UPDATED";
+
+    addLog(
+      action,
+      target?.fullName || "Candidate",
+      updates.rejectionReason
+        ? `Non-selection reason saved: "${updates.rejectionReason}"`
+        : `Dossier details & recruiter feedback updated`,
+      {
+        candidateId,
+        role: target?.appliedRole,
+        newStage: updates.status,
+      }
+    );
+
+    try {
+      const res = await fetch(`/api/candidates/${candidateId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      });
+      if (res.ok) {
+        toast.success("Candidate dossier updated!");
+        fetchCandidates();
+      }
+    } catch (e) {
+      toast.error("Failed to save dossier changes on server");
+    }
+  };
+
+  // Reschedule Candidate Slot
+  const handleRescheduleDossier = async (
+    candidateId: string,
+    newDateIso: string,
+    reason: string
+  ) => {
+    const target = candidates.find((c) => c.id === candidateId);
+    const newCount = (target?.rescheduleCount || 0) + 1;
+    const updates: Partial<CandidateItem> = {
+      interviewDate: newDateIso,
+      rescheduleCount: newCount,
+      rescheduleReason: reason,
+      status: "Line-Up Scheduled",
+    };
+
+    setCandidates((prev) =>
+      prev.map((c) => (c.id === candidateId ? { ...c, ...updates } : c))
+    );
+    if (dossierCandidate && dossierCandidate.id === candidateId) {
+      setDossierCandidate((prev) => (prev ? { ...prev, ...updates } : null));
+    }
+
+    updateCandidateInFirestore(candidateId, updates).catch((e) =>
+      console.warn("Firestore reschedule error:", e)
+    );
+
+    addLog(
+      "RESCHEDULE",
+      target?.fullName || "Candidate",
+      `Interview slot rescheduled (#${newCount}). Reason: "${reason}"`,
+      {
+        candidateId,
+        role: target?.appliedRole,
+        newStage: "Line-Up Scheduled",
+      }
+    );
+
+    try {
+      const res = await fetch(`/api/candidates/${candidateId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      });
+      if (res.ok) {
+        toast.success("Interview slot rescheduled successfully!");
+        fetchCandidates();
+      }
+    } catch (e) {
+      toast.error("Failed to reschedule on server");
+    }
+  };
+
+  // Candidate added: Completely FRICTIONLESS (No Password required)
   const handleCandidateAdded = (newCand: CandidateItem) => {
     syncCandidateToFirestore(newCand).catch((e) =>
       console.warn("Firestore candidate save error:", e)
+    );
+    addLog(
+      "CANDIDATE_ADDED",
+      newCand.fullName,
+      `New candidate added to line-up for ${newCand.appliedRole} (${newCand.location})`,
+      {
+        candidateId: newCand.id,
+        role: newCand.appliedRole,
+        newStage: newCand.status,
+      }
     );
     fetchCandidates();
   };
@@ -448,26 +804,47 @@ export default function RecruiterAdminPage() {
         </div>
 
         {/* View Switcher Bar (Mobile & Tablet) */}
-        <div className="flex md:hidden items-center justify-between gap-2 mb-4 bg-canvas p-1.5 rounded-xl border border-hairline shadow-sm">
+        <div className="flex md:hidden items-center justify-between gap-1 mb-4 bg-canvas p-1 rounded-xl border border-hairline shadow-sm overflow-x-auto no-scrollbar">
           <button
             onClick={() => setActiveTab("LINEUP")}
-            className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-all ${
+            className={`flex-1 py-1.5 px-2 text-xs font-medium rounded-lg whitespace-nowrap transition-all ${
               activeTab === "LINEUP"
                 ? "bg-brand-dark text-white shadow-sm"
                 : "text-ink-secondary"
             }`}
           >
-            Candidate Line-Up
+            Line-Up
           </button>
           <button
             onClick={() => setActiveTab("CALENDAR")}
-            className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-all ${
+            className={`flex-1 py-1.5 px-2 text-xs font-medium rounded-lg whitespace-nowrap transition-all ${
               activeTab === "CALENDAR"
                 ? "bg-brand-dark text-white shadow-sm"
                 : "text-ink-secondary"
             }`}
           >
-            Interview Calendar
+            Calendar
+          </button>
+          <button
+            onClick={() => setActiveTab("LOGS")}
+            className={`flex-1 py-1.5 px-2 text-xs font-medium rounded-lg whitespace-nowrap transition-all flex items-center justify-center gap-1 ${
+              activeTab === "LOGS"
+                ? "bg-brand-dark text-white shadow-sm"
+                : "text-ink-secondary"
+            }`}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
+            <span>Logs</span>
+          </button>
+          <button
+            onClick={() => setActiveTab("SETTINGS")}
+            className={`flex-1 py-1.5 px-2 text-xs font-medium rounded-lg whitespace-nowrap transition-all ${
+              activeTab === "SETTINGS"
+                ? "bg-brand-dark text-white shadow-sm"
+                : "text-ink-secondary"
+            }`}
+          >
+            Settings
           </button>
         </div>
 
@@ -475,8 +852,14 @@ export default function RecruiterAdminPage() {
         {activeTab === "CALENDAR" && (
           <CalendarView
             candidates={candidates}
-            onStatusChange={handleStatusChange}
-            onOpenDetails={openCandidateDrawer}
+            onStatusChange={(candidateId, newStatus) => {
+              const cand = candidates.find((c) => c.id === candidateId);
+              if (cand) requestStatusChangeWithPin(cand, newStatus);
+            }}
+            onOpenDetails={(c) => {
+              setDossierCandidate(c);
+              setIsDossierModalOpen(true);
+            }}
           />
         )}
 
@@ -624,38 +1007,31 @@ export default function RecruiterAdminPage() {
                 </div>
               ) : (
                 filteredCandidates.map((c) => {
-                  const statusMeta = STATUS_CONFIG[c.status] || STATUS_CONFIG["New Applied"];
+                  const pastel = PASTEL_CARD_THEMES[c.status] || PASTEL_CARD_THEMES["New Applied"];
                   const { dateStr, timeStr, relativeLabel } = formatIndianDateTime(c.interviewDate);
 
                   return (
                     <div
                       key={c.id}
-                      className="bg-canvas border border-hairline rounded-xl p-4 shadow-level1 space-y-3"
+                      className={`border rounded-xl p-4 shadow-sm space-y-3 transition-all ${pastel.cardBg} ${pastel.cardBorder}`}
                     >
-                      {/* Top Row: Role & Status */}
+                      {/* Top Row: Role & Status Dropdown with Colored Bullet Dots */}
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-[11px] font-semibold text-primary bg-primary/10 px-2.5 py-1 rounded-full truncate max-w-[180px]">
+                        <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full truncate max-w-[180px] ${pastel.badgeBg} ${pastel.badgeText}`}>
                           {c.appliedRole}
                         </span>
 
-                        <select
-                          value={c.status}
-                          onChange={(e) => handleStatusChange(c.id, e.target.value)}
-                          className={`text-[11px] font-medium px-2.5 py-1 rounded-full border cursor-pointer focus:outline-none shrink-0 ${statusMeta.bg} ${statusMeta.text} ${statusMeta.border}`}
-                        >
-                          {STATUS_LIST.map((st) => (
-                            <option key={st} value={st}>
-                              {st}
-                            </option>
-                          ))}
-                        </select>
+                        <CandidateStatusDropdown
+                          currentStatus={c.status}
+                          onStatusChange={(newSt) => requestStatusChangeWithPin(c, newSt)}
+                        />
                       </div>
 
                       {/* Candidate Name & Contact Details */}
                       <div>
                         <div className="text-base font-semibold text-ink flex items-center justify-between gap-2">
                           <span className="truncate">{c.fullName}</span>
-                          <span className="text-[10px] text-ink-mute font-mono shrink-0 bg-canvas-soft px-1.5 py-0.5 rounded border border-hairline">
+                          <span className="text-[10px] text-ink-mute font-mono shrink-0 bg-white/70 px-1.5 py-0.5 rounded border border-hairline">
                             {c.id}
                           </span>
                         </div>
@@ -679,9 +1055,9 @@ export default function RecruiterAdminPage() {
                         </div>
                       </div>
 
-                      {/* Scheduled Time Banner if set */}
+                      {/* Scheduled Time Banner */}
                       {c.interviewDate ? (
-                        <div className="p-2.5 rounded-lg bg-primary/5 border border-primary/20 flex items-center justify-between gap-2 text-xs">
+                        <div className="p-2.5 rounded-lg bg-white/80 border border-primary/20 flex items-center justify-between gap-2 text-xs shadow-xs">
                           <div className="flex items-center gap-1.5 text-primary font-medium min-w-0">
                             <Clock className="w-3.5 h-3.5 shrink-0" />
                             <span className="truncate">
@@ -690,17 +1066,26 @@ export default function RecruiterAdminPage() {
                             </span>
                           </div>
                           <button
-                            onClick={() => openCandidateDrawer(c)}
-                            className="text-[11px] text-primary hover:underline font-semibold shrink-0 py-0.5"
+                            type="button"
+                            onClick={() => {
+                              setDossierCandidate(c);
+                              setIsDossierModalOpen(true);
+                            }}
+                            className="text-[11px] text-primary hover:underline font-semibold shrink-0 py-0.5 inline-flex items-center gap-1"
                           >
-                            Reschedule
+                            <RotateCcw className="w-3 h-3" />
+                            <span>Reschedule</span>
                           </button>
                         </div>
                       ) : (
-                        <div className="p-2.5 rounded-lg bg-canvas-soft border border-hairline flex items-center justify-between gap-2 text-xs text-ink-mute">
+                        <div className="p-2.5 rounded-lg bg-white/60 border border-hairline flex items-center justify-between gap-2 text-xs text-ink-mute">
                           <span>No interview scheduled</span>
                           <button
-                            onClick={() => openCandidateDrawer(c)}
+                            type="button"
+                            onClick={() => {
+                              setDossierCandidate(c);
+                              setIsDossierModalOpen(true);
+                            }}
                             className="text-[11px] text-primary font-medium hover:underline shrink-0 py-0.5"
                           >
                             + Schedule Slot
@@ -708,11 +1093,37 @@ export default function RecruiterAdminPage() {
                         </div>
                       )}
 
+                      {/* View Full Dossier & Status Button */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDossierCandidate(c);
+                          setIsDossierModalOpen(true);
+                        }}
+                        className="w-full py-2 px-3 text-xs font-semibold rounded-lg bg-white/90 hover:bg-white text-ink border border-hairline transition-all flex items-center justify-center gap-1.5 shadow-sm active:scale-98"
+                      >
+                        <Eye className="w-3.5 h-3.5 text-primary" />
+                        <span>View Full Dossier &amp; Reschedule</span>
+                        {c.rescheduleCount && c.rescheduleCount > 0 ? (
+                          <span className="ml-1 text-[10px] bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded font-bold">
+                            Rescheduled ×{c.rescheduleCount}
+                          </span>
+                        ) : null}
+                      </button>
+
+                      {/* Reason for Rejection / Non-Selection Note if set */}
+                      {c.rejectionReason && (
+                        <div className="text-[11px] text-rose-700 bg-rose-50/90 p-2 rounded-lg border border-rose-200/70 flex items-start gap-1.5">
+                          <span className="font-semibold shrink-0">Non-Selection Reason:</span>
+                          <span className="italic truncate">{c.rejectionReason}</span>
+                        </div>
+                      )}
+
                       {/* Direct Call, WhatsApp & Resume Buttons */}
-                      <div className="grid grid-cols-5 gap-2 pt-2 border-t border-hairline">
+                      <div className="grid grid-cols-5 gap-2 pt-2 border-t border-hairline/60">
                         <a
                           href={`tel:${c.phone}`}
-                          className="col-span-2 text-center py-2.5 text-xs font-semibold rounded-pill bg-canvas-soft border border-hairline text-ink hover:text-primary transition-all flex items-center justify-center gap-1.5 active:scale-95 shadow-sm"
+                          className="col-span-2 text-center py-2.5 text-xs font-semibold rounded-pill bg-white/90 border border-hairline text-ink hover:text-primary transition-all flex items-center justify-center gap-1.5 active:scale-95 shadow-sm"
                         >
                           <Phone className="w-3.5 h-3.5 text-emerald-600" />
                           <span>Call</span>
@@ -734,7 +1145,7 @@ export default function RecruiterAdminPage() {
                           href={c.resumeUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="col-span-1 py-2.5 rounded-pill bg-canvas-soft border border-hairline text-primary hover:bg-primary/5 transition-all flex items-center justify-center active:scale-95 shadow-sm"
+                          className="col-span-1 py-2.5 rounded-pill bg-white/90 border border-hairline text-primary hover:bg-primary/5 transition-all flex items-center justify-center active:scale-95 shadow-sm"
                           title="Open Resume"
                         >
                           <FileText className="w-4 h-4" />
@@ -742,7 +1153,7 @@ export default function RecruiterAdminPage() {
                       </div>
 
                       {c.recruiterNotes && (
-                        <p className="text-[11px] text-ink-mute italic bg-canvas-soft p-2.5 rounded-lg border border-hairline">
+                        <p className="text-[11px] text-ink-mute italic bg-white/70 p-2.5 rounded-lg border border-hairline">
                           &ldquo;{c.recruiterNotes}&rdquo;
                         </p>
                       )}
@@ -821,7 +1232,11 @@ export default function RecruiterAdminPage() {
                                 </div>
                               ) : (
                                 <button
-                                  onClick={() => openCandidateDrawer(c)}
+                                  type="button"
+                                  onClick={() => {
+                                    setDossierCandidate(c);
+                                    setIsDossierModalOpen(true);
+                                  }}
                                   className="text-[11px] text-primary hover:underline font-medium"
                                 >
                                   + Set Schedule
@@ -893,25 +1308,31 @@ export default function RecruiterAdminPage() {
                             </td>
 
                             <td className="py-3.5 px-4 whitespace-nowrap">
-                              <select
-                                value={c.status}
-                                onChange={(e) => handleStatusChange(c.id, e.target.value)}
-                                className={`text-[11px] font-medium px-2.5 py-1 rounded-full border cursor-pointer focus:outline-none ${statusMeta.bg} ${statusMeta.text} ${statusMeta.border}`}
-                              >
-                                {STATUS_LIST.map((status) => (
-                                  <option key={status} value={status}>
-                                    {status}
-                                  </option>
-                                ))}
-                              </select>
+                              <CandidateStatusDropdown
+                                currentStatus={c.status}
+                                onStatusChange={(newSt) => requestStatusChangeWithPin(c, newSt)}
+                              />
                             </td>
 
-                            <td className="py-3.5 px-4 text-right whitespace-nowrap">
+                            <td className="py-3.5 px-4 text-right whitespace-nowrap space-x-1.5">
                               <button
-                                onClick={() => openCandidateDrawer(c)}
-                                className="text-xs text-primary hover:underline font-medium inline-flex items-center gap-1"
+                                type="button"
+                                onClick={() => {
+                                  setDossierCandidate(c);
+                                  setIsDossierModalOpen(true);
+                                }}
+                                className="text-xs text-primary hover:underline font-medium inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md hover:bg-primary/5 border border-hairline transition-all"
                               >
-                                <span>Schedule &amp; Notes</span>
+                                <Eye className="w-3.5 h-3.5" />
+                                <span>View Dossier</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => requestDeleteWithPin(c)}
+                                className="text-xs text-rose-500 hover:text-rose-700 hover:bg-rose-50 font-medium inline-flex items-center p-1.5 rounded-md border border-hairline transition-colors"
+                                title="Delete Candidate Record"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
                               </button>
                             </td>
                           </tr>
@@ -938,105 +1359,72 @@ export default function RecruiterAdminPage() {
             </div>
           </div>
         )}
+
+        {/* Active Tab: LOGS AUDIT TRAIL */}
+        {activeTab === "LOGS" && (
+          <ActivityLogsTab
+            logs={logs}
+            onClearLogs={handleClearLogs}
+            onExportLogs={handleExportLogs}
+          />
+        )}
+
+        {/* Active Tab: SETTINGS & DATABASE BACKUP */}
+        {activeTab === "SETTINGS" && (
+          <SettingsTab
+            candidates={candidates}
+            settings={settings}
+            onUpdateSettings={handleSaveSettings}
+            recruiterProfile={recruiterProfile}
+            onOpenProfileModal={() => setIsOnboardingModalOpen(true)}
+            logs={logs}
+          />
+        )}
       </main>
 
-      {/* Candidate Details & Schedule Drawer Modal */}
-      {activeCandidate && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-ink/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fadeIn">
-          <div className="w-full max-w-lg bg-canvas rounded-t-2xl sm:rounded-xl border border-hairline shadow-level3 overflow-hidden max-h-[92vh] flex flex-col">
-            {/* Modal Header */}
-            <div className="bg-canvas-soft border-b border-hairline px-4 sm:px-6 py-3.5 sm:py-4 flex items-center justify-between shrink-0">
-              <div>
-                <h3 className="text-sm sm:text-base font-semibold text-ink">
-                  Candidate Dossier &amp; Interview Slot
-                </h3>
-                <p className="text-[11px] sm:text-xs text-ink-mute">
-                  ID: {activeCandidate.id} • {activeCandidate.appliedRole}
-                </p>
-              </div>
-              <button
-                onClick={() => setActiveCandidate(null)}
-                className="text-ink-mute hover:text-ink text-sm p-1.5 rounded-md hover:bg-hairline transition-colors"
-              >
-                ✕
-              </button>
-            </div>
+      {/* Candidate Dossier & Reschedule Modal */}
+      <CandidateDossierModal
+        isOpen={isDossierModalOpen}
+        onClose={() => {
+          setIsDossierModalOpen(false);
+          setDossierCandidate(null);
+        }}
+        candidate={dossierCandidate}
+        onSave={async (updatedCandidate) => {
+          await handleSaveDossier(updatedCandidate.id, updatedCandidate);
+        }}
+        onRequestStatusChange={(id, newStatus) => {
+          const cand = candidates.find((c) => c.id === id);
+          if (cand) {
+            requestStatusChangeWithPin(cand, newStatus);
+          }
+        }}
+        onRequestDelete={(id) => {
+          const cand = candidates.find((c) => c.id === id);
+          if (cand) {
+            requestDeleteWithPin(cand);
+          }
+        }}
+      />
 
-            {/* Modal Scrollable Body */}
-            <div className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
-              <div className="p-3 rounded-lg bg-canvas-soft border border-hairline flex items-center justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="font-semibold text-ink text-sm truncate">{activeCandidate.fullName}</div>
-                  <div className="text-xs text-ink-mute truncate">
-                    {activeCandidate.location} • {activeCandidate.phone}
-                  </div>
-                </div>
-                <a
-                  href={activeCandidate.resumeUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn-primary-pill text-xs py-1.5 px-3 inline-flex items-center gap-1 shadow-sm shrink-0"
-                >
-                  <FileText className="w-3.5 h-3.5" />
-                  <span>Resume</span>
-                </a>
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-ink-secondary mb-1 flex items-center gap-1">
-                  <Calendar className="w-3.5 h-3.5 text-primary" />
-                  <span>Scheduled Interview Date &amp; Time</span>
-                </label>
-                <input
-                  type="datetime-local"
-                  value={editInterviewDate}
-                  onChange={(e) => setEditInterviewDate(e.target.value)}
-                  className="w-full text-base sm:text-xs px-3 py-2.5 sm:py-2 rounded-md border border-hairline-input focus:outline-none focus:border-primary bg-canvas text-ink"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-ink-secondary mb-1">
-                  Recruiter Screening Assessment &amp; Manager Feedback
-                </label>
-                <textarea
-                  rows={4}
-                  placeholder="e.g. Cleared round 1 screening. Strong operational background. Slot confirmed with candidate."
-                  value={editNotes}
-                  onChange={(e) => setEditNotes(e.target.value)}
-                  className="w-full text-base sm:text-xs p-3 rounded-md border border-hairline-input focus:outline-none focus:border-primary bg-canvas text-ink leading-relaxed"
-                />
-              </div>
-            </div>
-
-            {/* Sticky Footer */}
-            <div className="shrink-0 bg-canvas-soft border-t border-hairline px-4 sm:px-6 py-3 sm:py-3.5 flex items-center justify-end gap-2.5 safe-bottom">
-              <button
-                type="button"
-                onClick={() => setActiveCandidate(null)}
-                className="px-4 py-2 text-xs sm:text-sm text-ink-mute hover:text-ink transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveDetails}
-                disabled={savingDetails}
-                className="btn-primary-pill text-xs sm:text-sm px-5 py-2.5 inline-flex items-center gap-1.5 shadow-sm disabled:opacity-70"
-              >
-                {savingDetails ? (
-                  <>
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    <span>Saving Record...</span>
-                  </>
-                ) : (
-                  <span>Save Changes</span>
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* 4-Digit Action Security PIN Modal */}
+      <SecurityPinModal
+        isOpen={isPinModalOpen}
+        onClose={() => {
+          setIsPinModalOpen(false);
+          setPendingPinAction(null);
+        }}
+        onSuccess={() => {
+          if (pendingPinAction) {
+            const action = pendingPinAction;
+            setPendingPinAction(null);
+            action();
+          }
+        }}
+        expectedPin={settings.securityPin || "1234"}
+        actionTitle={pinModalTitle}
+        actionDescription={pinModalDescription}
+      />
 
       {/* Add Candidate Modal */}
       <AddCandidateModal
@@ -1066,7 +1454,6 @@ export default function RecruiterAdminPage() {
         activeTab={activeTab}
         onTabChange={setActiveTab}
         onOpenAddModal={() => setIsAddModalOpen(true)}
-        onOpenExportModal={() => setIsExportModalOpen(true)}
       />
     </div>
   );

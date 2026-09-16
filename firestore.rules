@@ -60,8 +60,18 @@ service cloud.firestore {
       allow write: if isAuthenticated() && request.auth.uid == recruiterId;
     }
 
-    // Audit logs & Sync states
+    // Audit logs & Activity logs
     match /audit_logs/{logId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Activity Logs with glowing audit points
+    match /activity_logs/{logId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // App Settings (Security PIN, preferences)
+    match /settings/{docId} {
       allow read, write: if isAuthenticated();
     }
 

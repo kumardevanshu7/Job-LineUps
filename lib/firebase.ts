@@ -13,13 +13,16 @@ import {
   collection,
   doc,
   getDoc,
+  getDocs,
   setDoc,
   updateDoc,
+  deleteDoc,
   onSnapshot,
   query,
   orderBy,
+  limit,
 } from "firebase/firestore";
-import { CandidateItem, RecruiterProfile } from "./types";
+import { CandidateItem, RecruiterProfile, ActivityLogItem, AppSettings } from "./types";
 
 export const firebaseConfig = {
   apiKey:
@@ -141,6 +144,71 @@ export async function getRecruiterProfileFromFirestore(
     return null;
   } catch (err) {
     console.warn("Firestore get recruiter profile error:", err);
+    return null;
+  }
+}
+
+// Firestore Sync: Delete candidate
+export async function deleteCandidateFromFirestore(candidateId: string) {
+  try {
+    const docRef = doc(db, "candidates", candidateId);
+    await deleteDoc(docRef);
+  } catch (err) {
+    console.warn("Firestore delete candidate error:", err);
+  }
+}
+
+// Firestore Sync: Save activity log entry
+export async function saveActivityLogToFirestore(logItem: ActivityLogItem) {
+  try {
+    const docRef = doc(db, "activity_logs", logItem.id);
+    await setDoc(docRef, logItem);
+  } catch (err) {
+    console.warn("Firestore activity log save error:", err);
+  }
+}
+
+// Firestore Sync: Get recent activity logs
+export async function getActivityLogsFromFirestore(): Promise<ActivityLogItem[]> {
+  try {
+    const logsRef = collection(db, "activity_logs");
+    const q = query(logsRef, orderBy("timestamp", "desc"), limit(50));
+    const snap = await getDocs(q);
+    const logs: ActivityLogItem[] = [];
+    snap.forEach((d) => {
+      logs.push(d.data() as ActivityLogItem);
+    });
+    return logs;
+  } catch (err) {
+    console.warn("Firestore get activity logs error:", err);
+    return [];
+  }
+}
+
+// Firestore Sync: Save app settings (e.g. security PIN)
+export async function saveSettingsToFirestore(settings: AppSettings) {
+  try {
+    const docRef = doc(db, "settings", "global_config");
+    await setDoc(docRef, {
+      ...settings,
+      updatedAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    console.warn("Firestore save settings error:", err);
+  }
+}
+
+// Firestore Sync: Get app settings
+export async function getSettingsFromFirestore(): Promise<AppSettings | null> {
+  try {
+    const docRef = doc(db, "settings", "global_config");
+    const snap = await getDoc(docRef);
+    if (snap.exists()) {
+      return snap.data() as AppSettings;
+    }
+    return null;
+  } catch (err) {
+    console.warn("Firestore get settings error:", err);
     return null;
   }
 }
