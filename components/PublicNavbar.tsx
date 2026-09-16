@@ -7,17 +7,17 @@ import { ArrowUpRight, ShieldCheck, Sparkles } from "lucide-react";
 export default function PublicNavbar() {
   return (
     <header className="sticky top-0 z-40 w-full backdrop-blur-md bg-white/85 border-b border-hairline transition-all">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2">
         {/* Brand Logo */}
-        <Link href="/" className="flex items-center gap-2.5 group">
-          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
-            <Sparkles className="w-4 h-4 text-white" />
+        <Link href="/" className="flex items-center gap-2 group shrink-0">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-primary flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform shrink-0">
+            <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
           </div>
           <div className="flex flex-col">
-            <span className="text-[19px] font-semibold tracking-tight text-ink">
+            <span className="text-[17px] sm:text-[19px] font-semibold tracking-tight text-ink">
               Talent<span className="text-primary font-normal">Flow</span>
             </span>
-            <span className="text-[10px] uppercase tracking-widest text-ink-mute -mt-1 font-medium">
+            <span className="text-[9px] sm:text-[10px] uppercase tracking-widest text-ink-mute -mt-0.5 font-medium hidden xs:block">
               HR Line-Up Command
             </span>
           </div>
@@ -46,14 +46,14 @@ export default function PublicNavbar() {
         </nav>
 
         {/* Right Actions: Recruiter Portal */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 shrink-0">
           <Link
             href="/admin"
-            className="btn-primary-pill text-sm py-2 px-4 inline-flex items-center gap-1.5 shadow-sm"
+            className="btn-primary-pill text-xs sm:text-sm py-1.5 sm:py-2 px-3 sm:px-4 inline-flex items-center gap-1.5 shadow-sm"
           >
-            <ShieldCheck className="w-4 h-4" />
+            <ShieldCheck className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             <span>Recruiter Portal</span>
-            <ArrowUpRight className="w-3.5 h-3.5 opacity-80" />
+            <ArrowUpRight className="w-3.5 h-3.5 opacity-80 hidden xs:inline" />
           </Link>
         </div>
       </div>

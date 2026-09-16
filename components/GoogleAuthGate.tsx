@@ -50,10 +50,10 @@ export default function GoogleAuthGate({ onSuccess }: GoogleAuthGateProps) {
         <div className="gradient-mesh-blob-3" />
       </div>
 
-      <div className="relative z-10 w-full max-w-md bg-canvas rounded-2xl border border-hairline shadow-level2 p-8 text-center">
+      <div className="relative z-10 w-full max-w-md bg-canvas rounded-xl sm:rounded-2xl border border-hairline shadow-level2 p-5 sm:p-8 text-center">
         {/* Brand Icon */}
-        <div className="w-14 h-14 rounded-2xl bg-primary text-white mx-auto flex items-center justify-center shadow-md mb-6">
-          <Sparkles className="w-7 h-7" />
+        <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-primary text-white mx-auto flex items-center justify-center shadow-md mb-5 sm:mb-6">
+          <Sparkles className="w-6 h-6 sm:w-7 sm:h-7" />
         </div>
 
         {/* Title */}
@@ -66,12 +66,12 @@ export default function GoogleAuthGate({ onSuccess }: GoogleAuthGateProps) {
           <span>Restricted Recruiter Access</span>
         </div>
 
-        <p className="text-xs sm:text-sm text-ink-secondary mb-8 font-light leading-relaxed">
+        <p className="text-xs sm:text-sm text-ink-secondary mb-6 sm:mb-8 font-light leading-relaxed">
           Sign in with your authorized Google Account to view today&apos;s active candidate line-up, schedule interviews date-wise, and export manager reports.
         </p>
 
         {errorMsg && (
-          <div className="mb-6 p-3.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs text-left flex items-start gap-2 leading-relaxed">
+          <div className="mb-5 sm:mb-6 p-3.5 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-xs text-left flex items-start gap-2 leading-relaxed">
             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
             <span>{errorMsg}</span>
           </div>
@@ -81,7 +81,7 @@ export default function GoogleAuthGate({ onSuccess }: GoogleAuthGateProps) {
         <button
           onClick={handleGoogleLogin}
           disabled={loading}
-          className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-pill border border-hairline bg-canvas hover:bg-canvas-soft text-ink font-medium text-sm transition-all shadow-sm hover:shadow active:scale-[0.99] disabled:opacity-70 group"
+          className="w-full flex items-center justify-center gap-3 py-3 px-4 rounded-pill border border-hairline bg-canvas hover:bg-canvas-soft text-ink font-medium text-sm transition-all shadow-sm hover:shadow active:scale-[0.99] disabled:opacity-70 min-h-[48px] group"
         >
           {loading ? (
             <>

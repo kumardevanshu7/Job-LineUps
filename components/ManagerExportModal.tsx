@@ -65,19 +65,19 @@ export default function ManagerExportModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-ink/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 animate-fadeIn">
-      <div className="w-full max-w-lg bg-canvas rounded-xl border border-hairline shadow-level3 overflow-hidden">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-ink/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fadeIn">
+      <div className="w-full max-w-lg bg-canvas rounded-t-2xl sm:rounded-xl border border-hairline shadow-level3 overflow-hidden max-h-[92vh] flex flex-col">
         {/* Header */}
-        <div className="bg-canvas-soft border-b border-hairline px-6 py-4 flex items-center justify-between">
+        <div className="bg-canvas-soft border-b border-hairline px-4 sm:px-6 py-3.5 sm:py-4 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
               <FileSpreadsheet className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-base font-semibold text-ink">
+              <h3 className="text-sm sm:text-base font-semibold text-ink">
                 Export Line-Up for Manager
               </h3>
-              <p className="text-xs text-ink-mute">
+              <p className="text-[11px] sm:text-xs text-ink-mute">
                 Generate clean, formatted Excel sheet (.xlsx) for leadership review
               </p>
             </div>
@@ -85,14 +85,14 @@ export default function ManagerExportModal({
 
           <button
             onClick={onClose}
-            className="p-1 rounded-md text-ink-mute hover:text-ink hover:bg-hairline transition-colors"
+            className="p-1.5 rounded-md text-ink-mute hover:text-ink hover:bg-hairline transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Content */}
-        <div className="p-6 space-y-4">
+        {/* Content (Scrollable) */}
+        <div className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
           <div>
             <label className="block text-xs font-semibold text-ink-secondary mb-2">
               Select Line-Up Date Scope:
@@ -176,7 +176,7 @@ export default function ManagerExportModal({
             <select
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value)}
-              className="w-full text-xs px-3 py-2 rounded-sm border border-hairline-input focus:outline-none focus:border-primary bg-canvas text-ink"
+              className="w-full text-base sm:text-xs px-3 py-2.5 sm:py-2 rounded-md border border-hairline-input focus:outline-none focus:border-primary bg-canvas text-ink"
             >
               <option value="ALL">All Roles</option>
               <option value="Documentation Specialist">Documentation Specialist</option>
@@ -202,25 +202,25 @@ export default function ManagerExportModal({
               <span>Time slot, Name, Phone, Exp, Notice, CTC, Resume, Notes</span>
             </div>
           </div>
+        </div>
 
-          {/* Modal Footer */}
-          <div className="pt-3 border-t border-hairline flex items-center justify-end gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-xs text-ink-mute hover:text-ink"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={handleDownload}
-              className="btn-primary-pill text-xs px-5 py-2.5 inline-flex items-center gap-2 shadow-sm"
-            >
-              <Download className="w-4 h-4" />
-              <span>Download Excel File</span>
-            </button>
-          </div>
+        {/* Sticky Modal Footer */}
+        <div className="shrink-0 bg-canvas-soft border-t border-hairline px-4 sm:px-6 py-3 sm:py-3.5 flex items-center justify-end gap-2.5 safe-bottom">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 text-xs sm:text-sm text-ink-mute hover:text-ink transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={handleDownload}
+            className="btn-primary-pill text-xs sm:text-sm px-5 py-2.5 inline-flex items-center gap-2 shadow-sm"
+          >
+            <Download className="w-4 h-4" />
+            <span>Download Excel File</span>
+          </button>
         </div>
       </div>
     </div>

@@ -32,7 +32,7 @@ export default function RecruiterNavbar({
     <header className="sticky top-0 z-40 w-full backdrop-blur-md bg-white/90 border-b border-hairline transition-all">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-2">
         {/* Left: Back to Site + Brand */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
           <Link
             href="/"
             className="p-1.5 rounded-md text-ink-mute hover:text-ink hover:bg-canvas-soft border border-hairline transition-colors"
@@ -41,15 +41,15 @@ export default function RecruiterNavbar({
             <ArrowLeft className="w-4 h-4" />
           </Link>
 
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shadow-sm shrink-0">
-              <Sparkles className="w-4 h-4 text-white" />
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-primary flex items-center justify-center shadow-sm shrink-0">
+              <Sparkles className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-white" />
             </div>
             <div className="flex flex-col">
-              <span className="text-[17px] sm:text-[18px] font-semibold tracking-tight text-ink leading-tight">
+              <span className="text-[16px] sm:text-[18px] font-semibold tracking-tight text-ink leading-tight">
                 Talent<span className="text-primary font-normal">Flow</span>
               </span>
-              <span className="text-[9px] sm:text-[10px] uppercase tracking-widest text-primary font-semibold">
+              <span className="text-[9px] sm:text-[10px] uppercase tracking-widest text-primary font-semibold hidden sm:block">
                 Recruiter Command
               </span>
             </div>
@@ -81,7 +81,7 @@ export default function RecruiterNavbar({
         </div>
 
         {/* Right Actions: Add Candidate, Export, Google Profile */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
           {/* Manager Export Button (Desktop) */}
           <button
             onClick={onOpenExportModal}
@@ -95,23 +95,24 @@ export default function RecruiterNavbar({
           {/* + Add Candidate Primary CTA */}
           <button
             onClick={onOpenAddModal}
-            className="btn-primary-pill text-xs py-2 px-3.5 inline-flex items-center gap-1.5 shadow-sm"
+            className="btn-primary-pill text-xs py-1.5 sm:py-2 px-2.5 sm:px-3.5 inline-flex items-center gap-1 shadow-sm shrink-0"
           >
-            <Plus className="w-4 h-4" />
-            <span className="font-medium">Add Candidate</span>
+            <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            <span className="font-medium hidden sm:inline">Add Candidate</span>
+            <span className="font-medium sm:hidden">Add</span>
           </button>
 
           {/* Recruiter Avatar & Sign Out */}
           {currentUser && (
-            <div className="flex items-center gap-2 border-l border-hairline pl-2.5 ml-1">
+            <div className="flex items-center gap-1.5 sm:gap-2 border-l border-hairline pl-2 ml-0.5 shrink-0">
               {currentUser.photoURL ? (
                 <img
                   src={currentUser.photoURL}
                   alt={currentUser.displayName || "Recruiter"}
-                  className="w-7 h-7 rounded-full object-cover border border-hairline"
+                  className="w-7 h-7 rounded-full object-cover border border-hairline shrink-0"
                 />
               ) : (
-                <div className="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs">
+                <div className="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0">
                   {currentUser.displayName
                     ? currentUser.displayName.charAt(0).toUpperCase()
                     : "HR"}
@@ -130,7 +131,7 @@ export default function RecruiterNavbar({
               {onSignOut && (
                 <button
                   onClick={onSignOut}
-                  className="p-1 rounded-md text-ink-mute hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                  className="p-1 rounded-md text-ink-mute hover:text-rose-600 hover:bg-rose-50 transition-colors shrink-0"
                   title="Sign Out of Google Account"
                 >
                   <LogOut className="w-3.5 h-3.5" />

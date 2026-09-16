@@ -160,19 +160,19 @@ export default function AddCandidateModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto bg-ink/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 animate-fadeIn">
-      <div className="relative w-full max-w-2xl bg-canvas rounded-xl border border-hairline shadow-level3 overflow-hidden">
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-ink/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fadeIn">
+      <div className="relative w-full max-w-2xl bg-canvas rounded-t-2xl sm:rounded-xl border border-hairline shadow-level3 overflow-hidden max-h-[92vh] flex flex-col">
         {/* Header */}
-        <div className="bg-canvas-soft border-b border-hairline px-6 py-4 flex items-center justify-between">
+        <div className="bg-canvas-soft border-b border-hairline px-4 sm:px-6 py-3.5 sm:py-4 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-primary text-white flex items-center justify-center shadow-sm">
+            <div className="w-8 h-8 rounded-lg bg-primary text-white flex items-center justify-center shadow-sm shrink-0">
               <UserPlus className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-base font-semibold text-ink">
+              <h2 className="text-sm sm:text-base font-semibold text-ink">
                 Create Candidate Line-Up Entry
               </h2>
-              <p className="text-xs text-ink-mute">
+              <p className="text-[11px] sm:text-xs text-ink-mute">
                 Schedule candidate for interview &amp; add to daily manager roster
               </p>
             </div>
@@ -180,20 +180,22 @@ export default function AddCandidateModal({
 
           <button
             onClick={onClose}
-            className="p-1 rounded-md text-ink-mute hover:text-ink hover:bg-hairline transition-colors"
+            className="p-1.5 rounded-md text-ink-mute hover:text-ink hover:bg-hairline transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Form Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
-          {errorMsg && (
-            <div className="p-3 rounded-md bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>{errorMsg}</span>
-            </div>
-          )}
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+          {/* Form Body (Scrollable) */}
+          <div className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
+            {errorMsg && (
+              <div className="p-3 rounded-md bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                <span>{errorMsg}</span>
+              </div>
+            )}
 
           {/* Section 1: Candidate Contact Info */}
           <div>
@@ -211,7 +213,7 @@ export default function AddCandidateModal({
                   placeholder="e.g. Ramesh Chandra"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  className="w-full text-xs sm:text-sm px-3 py-2 rounded-sm border border-hairline-input focus:outline-none focus:border-primary bg-canvas text-ink"
+                  className="w-full text-base sm:text-sm px-3 py-2.5 sm:py-2 rounded-md border border-hairline-input focus:outline-none focus:border-primary bg-canvas text-ink"
                 />
               </div>
 
@@ -226,7 +228,7 @@ export default function AddCandidateModal({
                   placeholder="e.g. 9811223344"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  className="w-full text-xs sm:text-sm px-3 py-2 rounded-sm border border-hairline-input focus:outline-none focus:border-primary bg-canvas text-ink tabular-nums"
+                  className="w-full text-base sm:text-sm px-3 py-2.5 sm:py-2 rounded-md border border-hairline-input focus:outline-none focus:border-primary bg-canvas text-ink tabular-nums"
                 />
               </div>
 
@@ -240,7 +242,7 @@ export default function AddCandidateModal({
                   placeholder="e.g. ramesh@gmail.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full text-xs sm:text-sm px-3 py-2 rounded-sm border border-hairline-input focus:outline-none focus:border-primary bg-canvas text-ink"
+                  className="w-full text-base sm:text-sm px-3 py-2.5 sm:py-2 rounded-md border border-hairline-input focus:outline-none focus:border-primary bg-canvas text-ink"
                 />
               </div>
 
@@ -254,7 +256,7 @@ export default function AddCandidateModal({
                   placeholder="e.g. Sector 59, Noida"
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
-                  className="w-full text-xs sm:text-sm px-3 py-2 rounded-sm border border-hairline-input focus:outline-none focus:border-primary bg-canvas text-ink"
+                  className="w-full text-base sm:text-sm px-3 py-2.5 sm:py-2 rounded-md border border-hairline-input focus:outline-none focus:border-primary bg-canvas text-ink"
                 />
               </div>
             </div>
@@ -286,13 +288,13 @@ export default function AddCandidateModal({
                     placeholder="Enter custom role title..."
                     value={customRole}
                     onChange={(e) => setCustomRole(e.target.value)}
-                    className="w-full text-xs sm:text-sm px-3 py-2 rounded-sm border border-hairline-input focus:outline-none focus:border-primary bg-canvas text-ink"
+                    className="w-full text-base sm:text-sm px-3 py-2.5 sm:py-2 rounded-md border border-hairline-input focus:outline-none focus:border-primary bg-canvas text-ink"
                   />
                 ) : (
                   <select
                     value={appliedRole}
                     onChange={(e) => setAppliedRole(e.target.value)}
-                    className="w-full text-xs sm:text-sm px-3 py-2 rounded-sm border border-hairline-input focus:outline-none focus:border-primary bg-canvas text-ink"
+                    className="w-full text-base sm:text-sm px-3 py-2.5 sm:py-2 rounded-md border border-hairline-input focus:outline-none focus:border-primary bg-canvas text-ink"
                   >
                     {PRESET_ROLES.map((r) => (
                       <option key={r} value={r}>
@@ -316,7 +318,7 @@ export default function AddCandidateModal({
                   placeholder="e.g. 2.5"
                   value={experienceYears}
                   onChange={(e) => setExperienceYears(e.target.value)}
-                  className="w-full text-xs sm:text-sm px-3 py-2 rounded-sm border border-hairline-input focus:outline-none focus:border-primary bg-canvas text-ink tabular-nums"
+                  className="w-full text-base sm:text-sm px-3 py-2.5 sm:py-2 rounded-md border border-hairline-input focus:outline-none focus:border-primary bg-canvas text-ink tabular-nums"
                 />
               </div>
 
@@ -332,7 +334,7 @@ export default function AddCandidateModal({
                   placeholder="e.g. 15 (0 for immediate)"
                   value={noticePeriodDays}
                   onChange={(e) => setNoticePeriodDays(e.target.value)}
-                  className="w-full text-xs sm:text-sm px-3 py-2 rounded-sm border border-hairline-input focus:outline-none focus:border-primary bg-canvas text-ink tabular-nums"
+                  className="w-full text-base sm:text-sm px-3 py-2.5 sm:py-2 rounded-md border border-hairline-input focus:outline-none focus:border-primary bg-canvas text-ink tabular-nums"
                 />
               </div>
 
@@ -343,7 +345,7 @@ export default function AddCandidateModal({
                 <select
                   value={status}
                   onChange={(e) => setStatus(e.target.value)}
-                  className="w-full text-xs sm:text-sm px-3 py-2 rounded-sm border border-hairline-input focus:outline-none focus:border-primary bg-canvas text-ink"
+                  className="w-full text-base sm:text-sm px-3 py-2.5 sm:py-2 rounded-md border border-hairline-input focus:outline-none focus:border-primary bg-canvas text-ink"
                 >
                   <option value="Line-Up Scheduled">Line-Up Scheduled</option>
                   <option value="Screening Shortlisted">Screening Shortlisted</option>
@@ -371,7 +373,7 @@ export default function AddCandidateModal({
                   placeholder="e.g. ₹5,00,000"
                   value={currentCtc}
                   onChange={(e) => setCurrentCtc(e.target.value)}
-                  className="w-full text-xs sm:text-sm px-3 py-2 rounded-sm border border-hairline-input focus:outline-none focus:border-primary bg-canvas text-ink"
+                  className="w-full text-base sm:text-sm px-3 py-2.5 sm:py-2 rounded-md border border-hairline-input focus:outline-none focus:border-primary bg-canvas text-ink"
                 />
               </div>
 
@@ -384,7 +386,7 @@ export default function AddCandidateModal({
                   placeholder="e.g. ₹6,50,000"
                   value={expectedCtc}
                   onChange={(e) => setExpectedCtc(e.target.value)}
-                  className="w-full text-xs sm:text-sm px-3 py-2 rounded-sm border border-hairline-input focus:outline-none focus:border-primary bg-canvas text-ink"
+                  className="w-full text-base sm:text-sm px-3 py-2.5 sm:py-2 rounded-md border border-hairline-input focus:outline-none focus:border-primary bg-canvas text-ink"
                 />
               </div>
 
@@ -397,7 +399,7 @@ export default function AddCandidateModal({
                   placeholder="https://drive.google.com/..."
                   value={resumeUrl}
                   onChange={(e) => setResumeUrl(e.target.value)}
-                  className="w-full text-xs sm:text-sm px-3 py-2 rounded-sm border border-hairline-input focus:outline-none focus:border-primary bg-canvas text-ink"
+                  className="w-full text-base sm:text-sm px-3 py-2.5 sm:py-2 rounded-md border border-hairline-input focus:outline-none focus:border-primary bg-canvas text-ink"
                 />
               </div>
             </div>
@@ -419,7 +421,7 @@ export default function AddCandidateModal({
                   type="datetime-local"
                   value={interviewDateTime}
                   onChange={(e) => setInterviewDateTime(e.target.value)}
-                  className="w-full text-xs sm:text-sm px-3 py-2 rounded-sm border border-hairline-input focus:outline-none focus:border-primary bg-canvas text-ink"
+                  className="w-full text-base sm:text-sm px-3 py-2.5 sm:py-2 rounded-md border border-hairline-input focus:outline-none focus:border-primary bg-canvas text-ink"
                 />
               </div>
 
@@ -432,41 +434,42 @@ export default function AddCandidateModal({
                   placeholder="e.g. Spoke to candidate, good comms, slot booked"
                   value={recruiterNotes}
                   onChange={(e) => setRecruiterNotes(e.target.value)}
-                  className="w-full text-xs sm:text-sm px-3 py-2 rounded-sm border border-hairline-input focus:outline-none focus:border-primary bg-canvas text-ink"
+                  className="w-full text-base sm:text-sm px-3 py-2.5 sm:py-2 rounded-md border border-hairline-input focus:outline-none focus:border-primary bg-canvas text-ink"
                 />
               </div>
             </div>
           </div>
+        </div>
 
-          {/* Footer Buttons */}
-          <div className="pt-4 border-t border-hairline flex items-center justify-end gap-3">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2 text-xs sm:text-sm text-ink-mute hover:text-ink transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn-primary-pill text-xs sm:text-sm px-6 py-2.5 inline-flex items-center gap-2 shadow-sm disabled:opacity-70"
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Adding to Line-Up...</span>
-                </>
-              ) : (
-                <>
-                  <Check className="w-4 h-4" />
-                  <span>Confirm &amp; Add to Calendar</span>
-                </>
-              )}
-            </button>
-          </div>
-        </form>
-      </div>
+        {/* Sticky Footer Buttons */}
+        <div className="shrink-0 bg-canvas-soft border-t border-hairline px-4 sm:px-6 py-3 sm:py-3.5 flex items-center justify-end gap-2.5 safe-bottom">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 text-xs sm:text-sm text-ink-mute hover:text-ink transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={loading}
+            className="btn-primary-pill text-xs sm:text-sm px-5 sm:px-6 py-2.5 inline-flex items-center gap-2 shadow-sm disabled:opacity-70"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Adding to Line-Up...</span>
+              </>
+            ) : (
+              <>
+                <Check className="w-4 h-4" />
+                <span>Confirm &amp; Add to Calendar</span>
+              </>
+            )}
+          </button>
+        </div>
+      </form>
     </div>
+  </div>
   );
 }

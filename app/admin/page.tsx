@@ -308,7 +308,7 @@ export default function RecruiterAdminPage() {
   ).length;
 
   return (
-    <div className="min-h-screen bg-canvas-soft flex flex-col pb-20 md:pb-8">
+    <div className="min-h-screen bg-canvas-soft flex flex-col pb-32 md:pb-8">
       {/* Top Recruiter Navbar */}
       <RecruiterNavbar
         onOpenAddModal={() => setIsAddModalOpen(true)}
@@ -446,10 +446,10 @@ export default function RecruiterAdminPage() {
                 </div>
 
                 {/* Date Filter Buttons */}
-                <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto">
+                <div className="flex items-center gap-1.5 w-full sm:w-auto overflow-x-auto no-scrollbar py-1">
                   <button
                     onClick={() => setDateFilter("ALL")}
-                    className={`px-3 py-1 rounded-pill text-xs font-medium transition-all ${
+                    className={`px-3 py-1.5 rounded-pill text-xs font-medium whitespace-nowrap shrink-0 transition-all ${
                       dateFilter === "ALL"
                         ? "bg-brand-dark text-white shadow-sm"
                         : "bg-canvas-soft border border-hairline text-ink-secondary hover:border-primary"
@@ -460,7 +460,7 @@ export default function RecruiterAdminPage() {
 
                   <button
                     onClick={() => setDateFilter("TODAY")}
-                    className={`px-3 py-1 rounded-pill text-xs font-medium transition-all ${
+                    className={`px-3 py-1.5 rounded-pill text-xs font-medium whitespace-nowrap shrink-0 transition-all ${
                       dateFilter === "TODAY"
                         ? "bg-primary text-white shadow-sm"
                         : "bg-canvas-soft border border-hairline text-primary hover:bg-primary/5"
@@ -471,7 +471,7 @@ export default function RecruiterAdminPage() {
 
                   <button
                     onClick={() => setDateFilter("TOMORROW")}
-                    className={`px-3 py-1 rounded-pill text-xs font-medium transition-all ${
+                    className={`px-3 py-1.5 rounded-pill text-xs font-medium whitespace-nowrap shrink-0 transition-all ${
                       dateFilter === "TOMORROW"
                         ? "bg-purple-600 text-white shadow-sm"
                         : "bg-canvas-soft border border-hairline text-purple-700 hover:bg-purple-50"
@@ -482,7 +482,7 @@ export default function RecruiterAdminPage() {
 
                   <button
                     onClick={() => setDateFilter("THIS_WEEK")}
-                    className={`px-3 py-1 rounded-pill text-xs font-medium transition-all ${
+                    className={`px-3 py-1.5 rounded-pill text-xs font-medium whitespace-nowrap shrink-0 transition-all ${
                       dateFilter === "THIS_WEEK"
                         ? "bg-brand-dark text-white shadow-sm"
                         : "bg-canvas-soft border border-hairline text-ink-secondary hover:border-primary"
@@ -579,14 +579,14 @@ export default function RecruiterAdminPage() {
                     >
                       {/* Top Row: Role & Status */}
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-[11px] font-semibold text-primary bg-primary/10 px-2 py-0.5 rounded-full truncate max-w-44">
+                        <span className="text-[11px] font-semibold text-primary bg-primary/10 px-2.5 py-1 rounded-full truncate max-w-[180px]">
                           {c.appliedRole}
                         </span>
 
                         <select
                           value={c.status}
                           onChange={(e) => handleStatusChange(c.id, e.target.value)}
-                          className={`text-[11px] font-medium px-2 py-0.5 rounded-full border cursor-pointer focus:outline-none ${statusMeta.bg} ${statusMeta.text} ${statusMeta.border}`}
+                          className={`text-[11px] font-medium px-2.5 py-1 rounded-full border cursor-pointer focus:outline-none shrink-0 ${statusMeta.bg} ${statusMeta.text} ${statusMeta.border}`}
                         >
                           {STATUS_LIST.map((st) => (
                             <option key={st} value={st}>
@@ -596,45 +596,57 @@ export default function RecruiterAdminPage() {
                         </select>
                       </div>
 
-                      {/* Candidate Name & Contact */}
+                      {/* Candidate Name & Contact Details */}
                       <div>
-                        <div className="text-base font-semibold text-ink flex items-center justify-between">
-                          <span>{c.fullName}</span>
-                          <span className="text-[10px] text-ink-mute font-mono">{c.id}</span>
+                        <div className="text-base font-semibold text-ink flex items-center justify-between gap-2">
+                          <span className="truncate">{c.fullName}</span>
+                          <span className="text-[10px] text-ink-mute font-mono shrink-0 bg-canvas-soft px-1.5 py-0.5 rounded border border-hairline">
+                            {c.id}
+                          </span>
                         </div>
-                        <div className="text-xs text-ink-mute flex items-center gap-1 mt-0.5">
-                          <MapPin className="w-3 h-3 text-primary shrink-0" />
-                          <span>{c.location}</span>
+                        <div className="text-xs text-ink-mute flex flex-wrap items-center gap-1.5 mt-1">
+                          <span className="flex items-center gap-1">
+                            <MapPin className="w-3 h-3 text-primary shrink-0" />
+                            {c.location}
+                          </span>
                           <span>•</span>
-                          <span className="tabular-nums">{c.experienceYears} Yrs Exp</span>
+                          <span className="tabular-nums font-medium text-ink-secondary">{c.experienceYears} Yrs Exp</span>
                           <span>•</span>
-                          <span className="tabular-nums">{c.noticePeriodDays}d Notice</span>
+                          <span className="tabular-nums font-medium text-ink-secondary">
+                            {c.noticePeriodDays === 0 ? "Immediate" : `${c.noticePeriodDays}d Notice`}
+                          </span>
+                          {c.expectedCtc && (
+                            <>
+                              <span>•</span>
+                              <span className="text-emerald-700 font-medium">Exp: {c.expectedCtc}</span>
+                            </>
+                          )}
                         </div>
                       </div>
 
                       {/* Scheduled Time Banner if set */}
                       {c.interviewDate ? (
-                        <div className="p-2 rounded-lg bg-primary/5 border border-primary/20 flex items-center justify-between text-xs">
-                          <div className="flex items-center gap-1.5 text-primary font-medium">
-                            <Clock className="w-3.5 h-3.5" />
-                            <span>
+                        <div className="p-2.5 rounded-lg bg-primary/5 border border-primary/20 flex items-center justify-between gap-2 text-xs">
+                          <div className="flex items-center gap-1.5 text-primary font-medium min-w-0">
+                            <Clock className="w-3.5 h-3.5 shrink-0" />
+                            <span className="truncate">
                               {relativeLabel ? `${relativeLabel}, ` : ""}
                               {dateStr} at {timeStr}
                             </span>
                           </div>
                           <button
                             onClick={() => openCandidateDrawer(c)}
-                            className="text-[11px] text-primary hover:underline font-semibold"
+                            className="text-[11px] text-primary hover:underline font-semibold shrink-0 py-0.5"
                           >
                             Reschedule
                           </button>
                         </div>
                       ) : (
-                        <div className="flex items-center justify-between text-xs text-ink-mute">
+                        <div className="p-2.5 rounded-lg bg-canvas-soft border border-hairline flex items-center justify-between gap-2 text-xs text-ink-mute">
                           <span>No interview scheduled</span>
                           <button
                             onClick={() => openCandidateDrawer(c)}
-                            className="text-[11px] text-primary font-medium hover:underline"
+                            className="text-[11px] text-primary font-medium hover:underline shrink-0 py-0.5"
                           >
                             + Schedule Slot
                           </button>
@@ -642,10 +654,10 @@ export default function RecruiterAdminPage() {
                       )}
 
                       {/* Direct Call, WhatsApp & Resume Buttons */}
-                      <div className="flex items-center gap-2 pt-2 border-t border-hairline">
+                      <div className="grid grid-cols-5 gap-2 pt-2 border-t border-hairline">
                         <a
                           href={`tel:${c.phone}`}
-                          className="flex-1 text-center py-2 text-xs font-semibold rounded-pill bg-canvas-soft border border-hairline text-ink hover:text-primary transition-colors flex items-center justify-center gap-1"
+                          className="col-span-2 text-center py-2.5 text-xs font-semibold rounded-pill bg-canvas-soft border border-hairline text-ink hover:text-primary transition-all flex items-center justify-center gap-1.5 active:scale-95 shadow-sm"
                         >
                           <Phone className="w-3.5 h-3.5 text-emerald-600" />
                           <span>Call</span>
@@ -657,7 +669,7 @@ export default function RecruiterAdminPage() {
                           )},%20this%20is%20from%20TalentFlow%20Recruitment%20regarding%20your%20interview%20schedule.`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="flex-1 text-center py-2 text-xs font-semibold rounded-pill bg-canvas-soft border border-hairline text-ink hover:text-emerald-600 transition-colors flex items-center justify-center gap-1"
+                          className="col-span-2 text-center py-2.5 text-xs font-semibold rounded-pill bg-emerald-50 border border-emerald-200 text-emerald-800 hover:bg-emerald-100 transition-all flex items-center justify-center gap-1.5 active:scale-95 shadow-sm"
                         >
                           <MessageCircle className="w-3.5 h-3.5 text-emerald-600" />
                           <span>WhatsApp</span>
@@ -667,7 +679,7 @@ export default function RecruiterAdminPage() {
                           href={c.resumeUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="p-2 rounded-pill bg-canvas-soft border border-hairline text-primary hover:bg-primary/5"
+                          className="col-span-1 py-2.5 rounded-pill bg-canvas-soft border border-hairline text-primary hover:bg-primary/5 transition-all flex items-center justify-center active:scale-95 shadow-sm"
                           title="Open Resume"
                         >
                           <FileText className="w-4 h-4" />
@@ -675,7 +687,7 @@ export default function RecruiterAdminPage() {
                       </div>
 
                       {c.recruiterNotes && (
-                        <p className="text-[11px] text-ink-mute italic bg-canvas-soft p-2 rounded">
+                        <p className="text-[11px] text-ink-mute italic bg-canvas-soft p-2.5 rounded-lg border border-hairline">
                           &ldquo;{c.recruiterNotes}&rdquo;
                         </p>
                       )}
@@ -860,30 +872,32 @@ export default function RecruiterAdminPage() {
 
       {/* Candidate Details & Schedule Drawer Modal */}
       {activeCandidate && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-ink/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-4 animate-fadeIn">
-          <div className="w-full max-w-lg bg-canvas rounded-xl border border-hairline shadow-level3 overflow-hidden">
-            <div className="bg-canvas-soft border-b border-hairline px-6 py-4 flex items-center justify-between">
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-ink/60 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 animate-fadeIn">
+          <div className="w-full max-w-lg bg-canvas rounded-t-2xl sm:rounded-xl border border-hairline shadow-level3 overflow-hidden max-h-[92vh] flex flex-col">
+            {/* Modal Header */}
+            <div className="bg-canvas-soft border-b border-hairline px-4 sm:px-6 py-3.5 sm:py-4 flex items-center justify-between shrink-0">
               <div>
-                <h3 className="text-base font-semibold text-ink">
+                <h3 className="text-sm sm:text-base font-semibold text-ink">
                   Candidate Dossier &amp; Interview Slot
                 </h3>
-                <p className="text-xs text-ink-mute">
+                <p className="text-[11px] sm:text-xs text-ink-mute">
                   ID: {activeCandidate.id} • {activeCandidate.appliedRole}
                 </p>
               </div>
               <button
                 onClick={() => setActiveCandidate(null)}
-                className="text-ink-mute hover:text-ink text-sm p-1"
+                className="text-ink-mute hover:text-ink text-sm p-1.5 rounded-md hover:bg-hairline transition-colors"
               >
                 ✕
               </button>
             </div>
 
-            <div className="p-6 space-y-4">
-              <div className="p-3 rounded-lg bg-canvas-soft border border-hairline flex items-center justify-between">
-                <div>
-                  <div className="font-semibold text-ink text-sm">{activeCandidate.fullName}</div>
-                  <div className="text-xs text-ink-mute">
+            {/* Modal Scrollable Body */}
+            <div className="p-4 sm:p-6 space-y-4 overflow-y-auto flex-1">
+              <div className="p-3 rounded-lg bg-canvas-soft border border-hairline flex items-center justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="font-semibold text-ink text-sm truncate">{activeCandidate.fullName}</div>
+                  <div className="text-xs text-ink-mute truncate">
                     {activeCandidate.location} • {activeCandidate.phone}
                   </div>
                 </div>
@@ -891,7 +905,7 @@ export default function RecruiterAdminPage() {
                   href={activeCandidate.resumeUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="btn-primary-pill text-xs py-1.5 px-3 inline-flex items-center gap-1 shadow-sm"
+                  className="btn-primary-pill text-xs py-1.5 px-3 inline-flex items-center gap-1 shadow-sm shrink-0"
                 >
                   <FileText className="w-3.5 h-3.5" />
                   <span>Resume</span>
@@ -907,7 +921,7 @@ export default function RecruiterAdminPage() {
                   type="datetime-local"
                   value={editInterviewDate}
                   onChange={(e) => setEditInterviewDate(e.target.value)}
-                  className="w-full text-xs px-3 py-2 rounded-sm border border-hairline-input focus:outline-none focus:border-primary bg-canvas text-ink"
+                  className="w-full text-base sm:text-xs px-3 py-2.5 sm:py-2 rounded-md border border-hairline-input focus:outline-none focus:border-primary bg-canvas text-ink"
                 />
               </div>
 
@@ -920,34 +934,35 @@ export default function RecruiterAdminPage() {
                   placeholder="e.g. Cleared round 1 screening. Strong operational background. Slot confirmed with candidate."
                   value={editNotes}
                   onChange={(e) => setEditNotes(e.target.value)}
-                  className="w-full text-xs p-3 rounded-sm border border-hairline-input focus:outline-none focus:border-primary bg-canvas text-ink leading-relaxed"
+                  className="w-full text-base sm:text-xs p-3 rounded-md border border-hairline-input focus:outline-none focus:border-primary bg-canvas text-ink leading-relaxed"
                 />
               </div>
+            </div>
 
-              <div className="pt-4 border-t border-hairline flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setActiveCandidate(null)}
-                  className="px-4 py-2 text-xs text-ink-mute hover:text-ink"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSaveDetails}
-                  disabled={savingDetails}
-                  className="btn-primary-pill text-xs px-5 py-2 inline-flex items-center gap-1.5 shadow-sm disabled:opacity-70"
-                >
-                  {savingDetails ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>Saving Record...</span>
-                    </>
-                  ) : (
-                    <span>Save Changes</span>
-                  )}
-                </button>
-              </div>
+            {/* Sticky Footer */}
+            <div className="shrink-0 bg-canvas-soft border-t border-hairline px-4 sm:px-6 py-3 sm:py-3.5 flex items-center justify-end gap-2.5 safe-bottom">
+              <button
+                type="button"
+                onClick={() => setActiveCandidate(null)}
+                className="px-4 py-2 text-xs sm:text-sm text-ink-mute hover:text-ink transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveDetails}
+                disabled={savingDetails}
+                className="btn-primary-pill text-xs sm:text-sm px-5 py-2.5 inline-flex items-center gap-1.5 shadow-sm disabled:opacity-70"
+              >
+                {savingDetails ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Saving Record...</span>
+                  </>
+                ) : (
+                  <span>Save Changes</span>
+                )}
+              </button>
             </div>
           </div>
         </div>
