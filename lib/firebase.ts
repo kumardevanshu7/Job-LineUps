@@ -149,16 +149,30 @@ export async function getCandidateFromFirestore(
 export async function getCandidatesFromFirestore(recruiterId?: string): Promise<CandidateItem[]> {
   try {
     const coll = collection(db, "candidates");
-    const q = query(coll, orderBy("createdAt", "desc"));
-    const snap = await getDocs(q);
+    let snap;
+    try {
+      const q = query(coll, orderBy("createdAt", "desc"));
+      snap = await getDocs(q);
+    } catch {
+      // Fallback in case of missing index or orderBy issues
+      snap = await getDocs(coll);
+    }
     const list: CandidateItem[] = [];
     snap.forEach((d) => {
       const data = d.data() as CandidateItem;
-      if (!recruiterId || data.recruiterId === recruiterId) {
+      if (
+        !recruiterId ||
+        !data.recruiterId ||
+        data.recruiterId === "unassigned" ||
+        data.recruiterId === "system" ||
+        data.recruiterId === recruiterId
+      ) {
         list.push(data);
       }
     });
-    return list;
+    return list.sort(
+      (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+    );
   } catch (err) {
     console.warn("Firestore get candidates error:", err);
     return [];
@@ -172,17 +186,31 @@ export function subscribeToCandidatesFromFirestore(
 ) {
   try {
     const coll = collection(db, "candidates");
-    const q = query(coll, orderBy("createdAt", "desc"));
+    let q;
+    try {
+      q = query(coll, orderBy("createdAt", "desc"));
+    } catch {
+      q = coll;
+    }
     return onSnapshot(
       q,
       (snapshot) => {
         const list: CandidateItem[] = [];
         snapshot.forEach((d) => {
           const data = d.data() as CandidateItem;
-          if (!recruiterId || data.recruiterId === recruiterId) {
+          if (
+            !recruiterId ||
+            !data.recruiterId ||
+            data.recruiterId === "unassigned" ||
+            data.recruiterId === "system" ||
+            data.recruiterId === recruiterId
+          ) {
             list.push(data);
           }
         });
+        list.sort(
+          (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+        );
         callback(list);
       },
       (error) => {
@@ -298,7 +326,7 @@ export function subscribeToActivityLogsFromFirestore(
   }
 }
 
-// Firestore Sync: Save app settings (e.g. security PIN, scoped to user uid)
+// Firestore Sync: Save app settings (e.g. security PIN, scoped to user uid + global fallback)
 export async function saveSettingsToFirestore(settings: AppSettings, uid?: string) {
   try {
     const docId = uid ? `user_${uid}` : "global_config";
@@ -307,15 +335,45 @@ export async function saveSettingsToFirestore(settings: AppSettings, uid?: strin
       ...settings,
       updatedAt: new Date().toISOString(),
     });
+
+    // Also sync webhookUrl to global_config so public candidate submissions (/api/apply)
+    // and server endpoints can always dispatch without needing GOOGLE_SHEETS_WEBHOOK_URL in .env
+    if (uid) {
+      const globalDocRef = doc(db, "settings", "global_config");
+      await setDoc(
+        globalDocRef,
+        {
+          webhookUrl: settings.webhookUrl || null,
+          updatedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      );
+    }
   } catch (err) {
     console.warn("Firestore save settings error:", err);
   }
 }
 
-// Firestore Sync: Get app settings (scoped to user uid)
+// Firestore Sync: Get app settings (scoped to user uid with global fallback)
 export async function getSettingsFromFirestore(uid?: string): Promise<AppSettings | null> {
   try {
-    const docId = uid ? `user_${uid}` : "global_config";
+    if (uid) {
+      const docRef = doc(db, "settings", `user_${uid}`);
+      const snap = await getDoc(docRef);
+      if (snap.exists()) {
+        const data = snap.data() as AppSettings;
+        // Fallback webhookUrl from global_config if not present on user doc
+        if (!data.webhookUrl) {
+          const globalRef = doc(db, "settings", "global_config");
+          const globalSnap = await getDoc(globalRef);
+          if (globalSnap.exists()) {
+            data.webhookUrl = (globalSnap.data() as AppSettings).webhookUrl;
+          }
+        }
+        return data;
+      }
+    }
+    const docId = "global_config";
     const docRef = doc(db, "settings", docId);
     const snap = await getDoc(docRef);
     if (snap.exists()) {

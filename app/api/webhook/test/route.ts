@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
-import { dispatchToGoogleSheets } from "@/lib/webhook";
+import { dispatchToGoogleSheets, getActiveWebhookUrl } from "@/lib/webhook";
 import { CandidateItem } from "@/lib/types";
 
 export async function POST(req: NextRequest) {
   try {
-    const { webhookUrl } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const targetUrl = await getActiveWebhookUrl(body?.webhookUrl);
 
-    if (!webhookUrl || !webhookUrl.startsWith("http")) {
+    if (!targetUrl) {
       return NextResponse.json(
-        { success: false, error: "Please enter a valid Google Apps Script Web App URL." },
+        { success: false, error: "Please enter or save a valid Google Apps Script Web App URL first." },
         { status: 400 }
       );
     }
@@ -30,7 +31,7 @@ export async function POST(req: NextRequest) {
       createdAt: new Date().toISOString(),
     };
 
-    const result = await dispatchToGoogleSheets(testCandidate, webhookUrl);
+    const result = await dispatchToGoogleSheets(testCandidate, targetUrl);
 
     if (result.success) {
       return NextResponse.json({

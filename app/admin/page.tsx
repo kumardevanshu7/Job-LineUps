@@ -278,20 +278,36 @@ export default function RecruiterAdminPage() {
           setParties(remoteParties || []);
         }, user.uid);
 
-        // 4. Real-time Candidates Sync (Zero Local DB Dependency) - Scoped to user.uid
+        // 4. Real-time Candidates Sync (Cloud Firestore) - Scoped to user.uid
         const unsubCandidates = subscribeToCandidatesFromFirestore((remoteCandidates) => {
-          const list = remoteCandidates || [];
-          setCandidates(list);
-          setStats({
-            total: list.length,
-            newApplied: list.filter((c) => c.status === "New Applied").length,
-            shortlisted: list.filter((c) => c.status === "Screening Shortlisted").length,
-            scheduled: list.filter((c) => c.status === "Line-Up Scheduled").length,
-            interviewDone: list.filter((c) => c.status === "Interview Done").length,
-            selected: list.filter((c) => c.status === "Selected").length,
-            rejected: list.filter((c) => c.status === "Rejected").length,
-          });
-          setLoading(false);
+          if (remoteCandidates && remoteCandidates.length > 0) {
+            setCandidates((prev) => {
+              const map = new Map<string, CandidateItem>();
+              prev.forEach((c) => map.set(c.id, c));
+              remoteCandidates.forEach((c) => {
+                const existing = map.get(c.id);
+                if (existing) {
+                  map.set(c.id, { ...existing, ...c });
+                } else {
+                  map.set(c.id, c);
+                }
+              });
+              const list = Array.from(map.values()).sort(
+                (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+              );
+              setStats({
+                total: list.length,
+                newApplied: list.filter((c) => c.status === "New Applied").length,
+                shortlisted: list.filter((c) => c.status === "Screening Shortlisted").length,
+                scheduled: list.filter((c) => c.status === "Line-Up Scheduled").length,
+                interviewDone: list.filter((c) => c.status === "Interview Done").length,
+                selected: list.filter((c) => c.status === "Selected").length,
+                rejected: list.filter((c) => c.status === "Rejected").length,
+              });
+              return list;
+            });
+            setLoading(false);
+          }
         }, user.uid);
 
         // 5. Real-time Activity Logs (Cloud Firestore) - Scoped to user.uid
@@ -471,12 +487,60 @@ export default function RecruiterAdminPage() {
     }
   };
 
-  // Fetch Candidates (Direct Firestore Fetch scoped to current recruiter)
+  // Fetch Candidates (Hybrid: SQLite Database + Cloud Firestore)
   const fetchCandidates = useCallback(async () => {
     if (!currentUser) return;
     try {
-      const firestoreCandidates = await getCandidatesFromFirestore(currentUser.uid);
-      const list = firestoreCandidates || [];
+      // 1. Fetch from local SQLite API (/api/candidates)
+      let dbCandidates: CandidateItem[] = [];
+      try {
+        const res = await fetch("/api/candidates");
+        if (res.ok) {
+          const data = await res.json();
+          if (data.success && Array.isArray(data.candidates)) {
+            dbCandidates = data.candidates;
+          }
+        }
+      } catch (apiErr) {
+        console.warn("Failed to fetch /api/candidates from SQLite:", apiErr);
+      }
+
+      // 2. Fetch from Cloud Firestore
+      let firestoreCandidates: CandidateItem[] = [];
+      try {
+        firestoreCandidates = await getCandidatesFromFirestore(currentUser.uid);
+      } catch (fErr) {
+        console.warn("Failed to fetch candidates from Firestore:", fErr);
+      }
+
+      // 3. Merge candidates (deduplicated by candidate ID)
+      const candidateMap = new Map<string, CandidateItem>();
+
+      // Populate from SQLite database first
+      dbCandidates.forEach((c) => {
+        candidateMap.set(c.id, c);
+      });
+
+      // Merge Firestore candidates
+      firestoreCandidates.forEach((c) => {
+        if (!candidateMap.has(c.id)) {
+          candidateMap.set(c.id, c);
+        } else {
+          const existing = candidateMap.get(c.id)!;
+          candidateMap.set(c.id, {
+            ...existing,
+            ...c,
+            status: c.status || existing.status,
+            interviewDate: c.interviewDate || existing.interviewDate,
+            recruiterNotes: c.recruiterNotes || existing.recruiterNotes,
+          });
+        }
+      });
+
+      const list = Array.from(candidateMap.values()).sort(
+        (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+      );
+
       setCandidates(list);
       setStats({
         total: list.length,
@@ -487,6 +551,22 @@ export default function RecruiterAdminPage() {
         selected: list.filter((c) => c.status === "Selected").length,
         rejected: list.filter((c) => c.status === "Rejected").length,
       });
+
+      // Background auto-sync: Push any candidates that were only in SQLite to Firestore
+      if (dbCandidates.length > 0 && currentUser) {
+        const firestoreIds = new Set(firestoreCandidates.map((c) => c.id));
+        dbCandidates.forEach((c) => {
+          if (!firestoreIds.has(c.id)) {
+            syncCandidateToFirestore(
+              {
+                ...c,
+                recruiterId: c.recruiterId || currentUser.uid,
+              },
+              currentUser.uid
+            ).catch(() => {});
+          }
+        });
+      }
     } catch (err) {
       console.error("Failed to fetch candidates", err);
       toast.error("Failed to refresh candidate line-up");

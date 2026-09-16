@@ -1,4 +1,5 @@
 import { CandidateItem } from "./types";
+import { getSettingsFromFirestore } from "./firebase";
 
 export const GOOGLE_APPS_SCRIPT_TEMPLATE = `// ===============================================================
 // TalentFlow Google Sheets Live Sync Webhook
@@ -76,12 +77,39 @@ function doGet(e) {
   ).setMimeType(ContentService.MimeType.JSON);
 }`;
 
+// Dynamically resolve active webhook URL: checks custom arg -> Firestore global_config -> env fallback
+export async function getActiveWebhookUrl(customWebhookUrl?: string): Promise<string | undefined> {
+  // 1. Explicit parameter passed to function
+  if (customWebhookUrl && customWebhookUrl.trim().startsWith("http")) {
+    return customWebhookUrl.trim();
+  }
+
+  // 2. Cloud Firestore global settings (saved from site Settings Tab)
+  try {
+    const settings = await getSettingsFromFirestore();
+    if (settings?.webhookUrl && settings.webhookUrl.trim().startsWith("http")) {
+      return settings.webhookUrl.trim();
+    }
+  } catch (err) {
+    console.warn("Could not retrieve webhookUrl from Firestore:", err);
+  }
+
+  // 3. Fallback to process.env if ever provided
+  const envUrl =
+    process.env.GOOGLE_SHEETS_WEBHOOK_URL ||
+    process.env.NEXT_PUBLIC_GOOGLE_SHEETS_WEBHOOK_URL;
+  if (envUrl && envUrl.trim().startsWith("http")) {
+    return envUrl.trim();
+  }
+
+  return undefined;
+}
+
 export async function dispatchToGoogleSheets(
   candidate: CandidateItem,
   customWebhookUrl?: string
 ): Promise<{ success: boolean; message?: string; error?: string }> {
-  const webhookUrl =
-    customWebhookUrl || process.env.GOOGLE_SHEETS_WEBHOOK_URL;
+  const webhookUrl = await getActiveWebhookUrl(customWebhookUrl);
 
   if (!webhookUrl || !webhookUrl.startsWith("http")) {
     return {

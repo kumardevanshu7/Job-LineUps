@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Shield,
   Download,
@@ -62,6 +62,17 @@ export default function SettingsTab({
   const [savingSettings, setSavingSettings] = useState(false);
   const [isWebhookGuideOpen, setIsWebhookGuideOpen] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
+
+  // Sync settings when loaded or updated
+  useEffect(() => {
+    if (settings.webhookUrl !== undefined) {
+      setCustomWebhookUrl(settings.webhookUrl || "");
+    }
+    if (settings.securityPin) {
+      setCurrentPin(settings.securityPin);
+    }
+    setPinEnabled(settings.pinProtectionEnabled);
+  }, [settings]);
 
   // 1-Click JSON Data Export
   const handleExportJson = () => {
@@ -136,7 +147,8 @@ export default function SettingsTab({
 
   // Test Webhook
   const handleTestWebhook = async () => {
-    if (!customWebhookUrl && !process.env.NEXT_PUBLIC_GOOGLE_SHEETS_WEBHOOK_URL) {
+    const targetUrl = (customWebhookUrl || settings.webhookUrl || "").trim();
+    if (!targetUrl) {
       toast.error("Please enter a Google Sheets Webhook URL first.");
       return;
     }
@@ -147,7 +159,7 @@ export default function SettingsTab({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          webhookUrl: customWebhookUrl.trim() || undefined,
+          webhookUrl: targetUrl,
         }),
       });
       const data = await res.json();
@@ -165,14 +177,24 @@ export default function SettingsTab({
 
   // Save Webhook URL directly
   const handleSaveWebhook = async () => {
+    const trimmed = customWebhookUrl.trim();
+    if (trimmed && !trimmed.startsWith("http")) {
+      toast.error("Invalid URL. It must start with https://script.google.com/...");
+      return;
+    }
+
     setSavingWebhook(true);
     try {
       await onUpdateSettings({
         ...settings,
-        webhookUrl: customWebhookUrl.trim() || undefined,
+        webhookUrl: trimmed || undefined,
         updatedAt: new Date().toISOString(),
       });
-      toast.success("Google Sheets Webhook URL saved successfully!");
+      toast.success(
+        trimmed
+          ? "Google Sheets Webhook URL saved to site settings!"
+          : "Webhook URL removed from site settings"
+      );
     } catch (err) {
       toast.error("Failed to save Webhook URL");
     } finally {
@@ -454,20 +476,46 @@ export default function SettingsTab({
             </div>
           </div>
 
-          <div>
-            <label className="text-[11px] text-ink-mute block mb-1">
-              Google Apps Script Web App URL:
-            </label>
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <label className="text-[11px] font-semibold text-ink block">
+                Google Apps Script Web App URL:
+              </label>
+              {settings.webhookUrl ? (
+                <span className="inline-flex items-center gap-1 text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  <span>Site Webhook Active</span>
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-[10px] text-ink-mute px-2 py-0.5 rounded-full bg-canvas-soft border border-hairline">
+                  Not Configured
+                </span>
+              )}
+            </div>
+
             <input
               type="text"
               value={customWebhookUrl}
               onChange={(e) => setCustomWebhookUrl(e.target.value)}
               placeholder="https://script.google.com/macros/s/.../exec"
-              className="w-full text-xs px-3 py-2 rounded-lg border border-hairline-input bg-canvas text-ink font-mono focus:outline-none focus:border-primary"
+              className="w-full text-xs px-3 py-2 rounded-lg border border-hairline-input bg-canvas text-ink font-mono focus:outline-none focus:border-primary shadow-2xs"
             />
+
+            {customWebhookUrl.trim() !== (settings.webhookUrl || "").trim() && (
+              <p className="text-[11px] text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1 pt-0.5">
+                <AlertCircle className="w-3 h-3 shrink-0" />
+                <span>Unsaved changes — click &quot;Save Webhook URL&quot; below to apply.</span>
+              </p>
+            )}
+
+            {settings.webhookUrl && (
+              <p className="text-[11px] text-ink-mute font-light">
+                Candidate applications &amp; line-ups automatically sync to your connected Google Sheet. No .env configuration required!
+              </p>
+            )}
           </div>
 
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 flex-wrap pt-1">
             <button
               type="button"
               disabled={testingWebhook}
