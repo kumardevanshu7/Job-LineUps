@@ -50,18 +50,18 @@ export default function RecruiterNavbar({
       {/* LAYER 1: Top Command & Primary Actions Header                            */}
       {/* ========================================================================= */}
       <div className="w-full backdrop-blur-md bg-white/95 border-b border-hairline/80">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-3">
+        <div className="max-w-7xl mx-auto px-2.5 sm:px-6 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-2 sm:gap-3">
           {/* Left: Brand Logo (high-res favicon) + TalentFlow wordmark */}
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0 min-w-0">
             <Link
               href="/admin"
-              className="flex items-center gap-2 group focus:outline-none"
+              className="flex items-center gap-1.5 sm:gap-2 group focus:outline-none shrink-0"
               title="TalentFlow Recruiter Command"
             >
               {/* Always show the favicon/brand logo here */}
-              <BrandLogo size="sm" className="w-8 h-8 rounded-lg shadow-2xs shrink-0 group-hover:scale-105 transition-transform" />
-              <div className="flex flex-col">
-                <span className="text-[17px] sm:text-[19px] font-bold tracking-tight text-ink leading-tight">
+              <BrandLogo size="sm" className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg shadow-2xs shrink-0 group-hover:scale-105 transition-transform" />
+              <div className="flex flex-col shrink-0">
+                <span className="text-[16px] sm:text-[19px] font-bold tracking-tight text-ink leading-tight">
                   Talent<span className="text-primary font-medium">Flow</span>
                 </span>
                 <span className="text-[9px] sm:text-[10px] uppercase tracking-widest text-primary font-semibold hidden sm:block">
@@ -72,36 +72,48 @@ export default function RecruiterNavbar({
           </div>
 
           {/* Right: Actions */}
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            {/* Manager Export — desktop only */}
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+            {/* Desktop Actions Group (Strictly Hidden on Mobile) */}
+            <div className="hidden md:flex items-center gap-2 sm:gap-3 shrink-0">
+              {/* Manager Export — desktop only */}
+              <button
+                onClick={onOpenExportModal}
+                className="btn-secondary-pill text-xs py-1.5 px-3 items-center gap-1.5 text-ink-secondary hover:text-emerald-700 hover:border-emerald-300 transition-all shadow-2xs shrink-0"
+                title="Download Line-Up for Manager (.xlsx)"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span className="font-medium">Manager Export (.xlsx)</span>
+              </button>
+
+              {/* Add Parties — desktop only (md+) */}
+              <button
+                onClick={onOpenPartiesModal}
+                className="btn-secondary-pill text-xs py-1.5 px-3 items-center gap-1.5 text-primary border-primary/30 hover:bg-primary-subdued/50 transition-all shadow-2xs shrink-0"
+                title="Add Collaborator Parties & Configure Permissions"
+              >
+                <Users className="w-3.5 h-3.5 text-primary shrink-0" />
+                <span className="font-semibold">Add Parties</span>
+                {typeof partiesCount === "number" && partiesCount > 0 && (
+                  <span className="px-1.5 py-0.2 text-[10px] font-bold rounded-full bg-primary text-white">
+                    {partiesCount}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {/* Mobile-Only Quick Export Button (md:hidden) */}
             <button
               onClick={onOpenExportModal}
-              className="hidden md:inline-flex btn-secondary-pill text-xs py-1.5 px-3 items-center gap-1.5 text-ink-secondary hover:text-emerald-700 hover:border-emerald-300 transition-all shadow-2xs"
-              title="Download Line-Up for Manager (.xlsx)"
+              className="md:hidden p-1.5 rounded-lg border border-hairline bg-canvas text-emerald-700 hover:bg-emerald-50 transition-all shadow-2xs shrink-0 flex items-center justify-center"
+              title="Export Line-Up (.xlsx)"
             >
-              <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-              <span className="font-medium">Manager Export (.xlsx)</span>
-            </button>
-
-            {/* Add Parties — desktop only (md+) */}
-            <button
-              onClick={onOpenPartiesModal}
-              className="hidden md:inline-flex btn-secondary-pill text-xs py-1.5 px-3 items-center gap-1.5 text-primary border-primary/30 hover:bg-primary-subdued/50 transition-all shadow-2xs shrink-0"
-              title="Add Collaborator Parties & Configure Permissions"
-            >
-              <Users className="w-3.5 h-3.5 text-primary shrink-0" />
-              <span className="font-semibold">Add Parties</span>
-              {typeof partiesCount === "number" && partiesCount > 0 && (
-                <span className="px-1.5 py-0.2 text-[10px] font-bold rounded-full bg-primary text-white">
-                  {partiesCount}
-                </span>
-              )}
+              <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
             </button>
 
             {/* Add Candidate CTA */}
             <button
               onClick={onOpenAddModal}
-              className="btn-primary-pill text-xs py-1.5 sm:py-2 px-3 sm:px-4 inline-flex items-center gap-1.5 shadow-2xs shrink-0"
+              className="btn-primary-pill text-xs py-1.5 sm:py-2 px-2.5 sm:px-4 inline-flex items-center gap-1 sm:gap-1.5 shadow-2xs shrink-0"
             >
               <Plus className="w-3.5 h-3.5 sm:w-4 sm:h-4 stroke-[2.5]" />
               <span className="font-semibold hidden sm:inline">Add Candidate</span>
@@ -110,7 +122,7 @@ export default function RecruiterNavbar({
 
             {/* Recruiter Profile Chip + Sign Out */}
             {currentUser && (
-              <div className="flex items-center gap-1.5 sm:gap-2 border-l border-hairline pl-2 sm:pl-3 ml-0.5 shrink-0">
+              <div className="flex items-center gap-1 sm:gap-2 border-l border-hairline pl-1.5 sm:pl-3 ml-0.5 shrink-0">
                 <button
                   onClick={onOpenProfileModal}
                   className="flex items-center gap-2 group text-left focus:outline-none p-1 rounded-lg hover:bg-canvas-soft transition-colors"
