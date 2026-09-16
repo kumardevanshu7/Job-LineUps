@@ -1516,6 +1516,8 @@ export default function RecruiterAdminPage() {
             recruiterProfile={recruiterProfile}
             onOpenProfileModal={() => setIsOnboardingModalOpen(true)}
             logs={logs}
+            onOpenPartiesModal={() => setIsAddPartiesModalOpen(true)}
+            partiesCount={parties.length}
           />
         )}
       </main>

@@ -101,11 +101,30 @@ export default function RecruiterNavbar({
               </button>
             </div>
 
-            {/* Mobile-Only Quick Export Button (md:hidden) */}
+            {/* Mobile-Only Action Buttons (md:hidden) */}
+            {/* 1. Mobile Parties Button with Badge */}
+            {onOpenPartiesModal && (
+              <button
+                onClick={onOpenPartiesModal}
+                className="md:hidden p-1.5 rounded-lg border border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 transition-all shadow-2xs shrink-0 flex items-center justify-center relative"
+                title="Collaborator Parties"
+                aria-label="Collaborator Parties"
+              >
+                <Users className="w-4 h-4 text-primary" />
+                {typeof partiesCount === "number" && partiesCount > 0 && (
+                  <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] px-0.5 text-[9px] font-bold rounded-full bg-primary text-white flex items-center justify-center">
+                    {partiesCount}
+                  </span>
+                )}
+              </button>
+            )}
+
+            {/* 2. Mobile Quick Export Button */}
             <button
               onClick={onOpenExportModal}
               className="md:hidden p-1.5 rounded-lg border border-hairline bg-canvas text-emerald-700 hover:bg-emerald-50 transition-all shadow-2xs shrink-0 flex items-center justify-center"
               title="Export Line-Up (.xlsx)"
+              aria-label="Export Line-Up"
             >
               <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
             </button>
@@ -168,9 +187,9 @@ export default function RecruiterNavbar({
       {/* LAYER 2: Sub-Navigation Strip (Dedicated Tab Navigation Bar)             */}
       {/* ========================================================================= */}
       <div className="w-full bg-white/95 backdrop-blur-md border-b border-hairline">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-11 sm:h-12 flex items-center justify-between gap-2 overflow-x-auto no-scrollbar">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-11 sm:h-12 flex items-center gap-2 overflow-x-auto no-scrollbar">
           {/* Clean Horizontal Tabs Strip */}
-          <nav className="flex items-center gap-1 sm:gap-1.5 text-xs font-medium">
+          <nav className="flex items-center gap-1 sm:gap-1.5 text-xs font-medium shrink-0">
             {/* Tab 1: Line-Up */}
             <button
               onClick={() => onTabChange("LINEUP")}
@@ -237,18 +256,24 @@ export default function RecruiterNavbar({
               <Settings className="w-3.5 h-3.5" />
               <span>Settings</span>
             </button>
-          </nav>
 
-          {/* Quick Mobile Action (Export) */}
-          <div className="sm:hidden flex items-center shrink-0">
-            <button
-              onClick={onOpenExportModal}
-              className="text-[11px] font-medium text-emerald-700 bg-emerald-50 px-2 py-1 rounded-md border border-emerald-200 flex items-center gap-1"
-            >
-              <FileSpreadsheet className="w-3 h-3 text-emerald-600" />
-              <span>Export</span>
-            </button>
-          </div>
+            {/* Item 5: Collaborator Parties */}
+            {onOpenPartiesModal && (
+              <button
+                onClick={onOpenPartiesModal}
+                className="px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 text-primary hover:bg-primary/10 border border-primary/20 shrink-0 font-medium ml-1"
+                title="Add Collaborator Parties & Configure Permissions"
+              >
+                <Users className="w-3.5 h-3.5 text-primary" />
+                <span>Parties</span>
+                {typeof partiesCount === "number" && partiesCount > 0 && (
+                  <span className="px-1.5 py-0.2 text-[10px] font-bold rounded-full bg-primary text-white">
+                    {partiesCount}
+                  </span>
+                )}
+              </button>
+            )}
+          </nav>
         </div>
       </div>
     </header>

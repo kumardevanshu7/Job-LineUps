@@ -20,6 +20,7 @@ import {
   Check,
   ExternalLink,
   X,
+  Users,
 } from "lucide-react";
 import { toast } from "sonner";
 import { CandidateItem, RecruiterProfile, AppSettings, ActivityLogItem } from "@/lib/types";
@@ -33,6 +34,8 @@ interface SettingsTabProps {
   onUpdateSettings: (newSettings: AppSettings) => Promise<void>;
   onOpenProfileModal: () => void;
   logs: ActivityLogItem[];
+  onOpenPartiesModal?: () => void;
+  partiesCount?: number;
 }
 
 export default function SettingsTab({
@@ -42,6 +45,8 @@ export default function SettingsTab({
   onUpdateSettings,
   onOpenProfileModal,
   logs,
+  onOpenPartiesModal,
+  partiesCount,
 }: SettingsTabProps) {
   const [currentPin, setCurrentPin] = useState(settings.securityPin || "1234");
   const [showPin, setShowPin] = useState(false);
@@ -341,7 +346,46 @@ export default function SettingsTab({
           </button>
         </div>
 
-        {/* Box 3: Google Sheets Webhook Configuration */}
+        {/* Box 3: Collaborator Parties & Permissions */}
+        {onOpenPartiesModal && (
+          <div className="bg-canvas border border-hairline rounded-2xl p-5 sm:p-6 shadow-level1 space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-hairline">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-primary/10 text-primary flex items-center justify-center">
+                  <Users className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-ink">
+                    Collaborator Parties &amp; Teams
+                  </h3>
+                  <p className="text-[11px] text-ink-mute">
+                    Connect recruiting teams, review join requests, and configure per-party permissions.
+                  </p>
+                </div>
+              </div>
+              {typeof partiesCount === "number" && partiesCount > 0 && (
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-primary/10 text-primary border border-primary/20">
+                  {partiesCount} Active
+                </span>
+              )}
+            </div>
+
+            <p className="text-xs text-ink-secondary leading-relaxed font-light">
+              Collaborate across departments and vendor agencies. Set custom permissions (View only, Status edit, Delete protection) for each connected party.
+            </p>
+
+            <button
+              type="button"
+              onClick={onOpenPartiesModal}
+              className="w-full btn-primary-pill text-xs py-2.5 inline-flex items-center justify-center gap-1.5"
+            >
+              <Users className="w-4 h-4" />
+              <span>Manage Collaborator Parties</span>
+            </button>
+          </div>
+        )}
+
+        {/* Box 4: Google Sheets Webhook Configuration */}
         <div className="bg-canvas border border-hairline rounded-2xl p-5 sm:p-6 shadow-level1 space-y-4">
           <div className="flex items-center justify-between pb-3 border-b border-hairline">
             <div className="flex items-center gap-2.5">
