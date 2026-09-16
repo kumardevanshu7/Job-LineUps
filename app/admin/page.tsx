@@ -801,6 +801,19 @@ export default function RecruiterAdminPage() {
         newStage: newCand.status,
       }
     );
+
+    // Sync candidate to Google Sheets Webhook if configured
+    if (settings.webhookUrl) {
+      fetch("/api/webhook/dispatch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          candidate: candidateWithRecruiter,
+          webhookUrl: settings.webhookUrl,
+        }),
+      }).catch((e) => console.warn("Background webhook sync error:", e));
+    }
+
     fetchCandidates();
   };
 

@@ -24,12 +24,14 @@ interface StatusFilterDropdownProps {
   value: string;
   onChange: (value: string) => void;
   className?: string;
+  align?: "left" | "right";
 }
 
 export default function StatusFilterDropdown({
   value,
   onChange,
   className = "",
+  align = "right",
 }: StatusFilterDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -95,7 +97,9 @@ export default function StatusFilterDropdown({
       {isOpen && (
         <div
           role="listbox"
-          className="absolute left-0 top-full mt-1 w-52 rounded-md bg-white border border-hairline shadow-level3 py-1 z-50 animate-in fade-in-50 zoom-in-95 duration-100"
+          className={`absolute ${
+            align === "left" ? "left-0" : "right-0"
+          } top-full mt-1 w-52 rounded-md bg-white border border-hairline shadow-level3 py-1 z-50 animate-in fade-in-50 zoom-in-95 duration-100`}
         >
           {STAGE_OPTIONS.map((opt) => {
             const isSelected = opt.value === value;

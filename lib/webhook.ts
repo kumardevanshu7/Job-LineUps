@@ -39,10 +39,11 @@ function doPost(e) {
       sheet.getRange(1, 1, 1, 14).setFontWeight("bold").setBackground("#f6f9fc");
     }
 
-    var data = JSON.parse(e.postData.contents);
+    var contents = (e && e.postData && e.postData.contents) ? e.postData.contents : "{}";
+    var data = JSON.parse(contents);
 
     sheet.appendRow([
-      data.id || Utilities.getUuid(),
+      data.id || ("TF-" + Math.floor(1000 + Math.random() * 9000)),
       new Date(),
       data.fullName || "",
       data.phone || "",
@@ -66,6 +67,13 @@ function doPost(e) {
       JSON.stringify({ status: "error", error: err.toString() })
     ).setMimeType(ContentService.MimeType.JSON);
   }
+}
+
+// Health check responder: confirms Webhook is live when opened in a browser
+function doGet(e) {
+  return ContentService.createTextOutput(
+    JSON.stringify({ status: "active", message: "TalentFlow Webhook is Live & Ready!" })
+  ).setMimeType(ContentService.MimeType.JSON);
 }`;
 
 export async function dispatchToGoogleSheets(
@@ -84,12 +92,12 @@ export async function dispatchToGoogleSheets(
 
   try {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 6000);
+    const timeoutId = setTimeout(() => controller.abort(), 9000);
 
     const response = await fetch(webhookUrl, {
       method: "POST",
       headers: {
-        "Content-Type": "application/json",
+        "Content-Type": "text/plain;charset=utf-8",
       },
       body: JSON.stringify(candidate),
       signal: controller.signal,

@@ -83,7 +83,8 @@ export async function POST(req: NextRequest) {
     });
 
     // Asynchronously dispatch to Google Sheets webhook if configured
-    dispatchToGoogleSheets(candidate).catch((err) =>
+    const webhookUrl = body.webhookUrl || undefined;
+    dispatchToGoogleSheets(candidate, webhookUrl).catch((err) =>
       console.warn("Background webhook error:", err)
     );
 

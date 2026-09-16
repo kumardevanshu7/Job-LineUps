@@ -58,6 +58,7 @@ export default function SettingsTab({
   );
 
   const [testingWebhook, setTestingWebhook] = useState(false);
+  const [savingWebhook, setSavingWebhook] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
   const [isWebhookGuideOpen, setIsWebhookGuideOpen] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
@@ -159,6 +160,23 @@ export default function SettingsTab({
       toast.error("Webhook test failed");
     } finally {
       setTestingWebhook(false);
+    }
+  };
+
+  // Save Webhook URL directly
+  const handleSaveWebhook = async () => {
+    setSavingWebhook(true);
+    try {
+      await onUpdateSettings({
+        ...settings,
+        webhookUrl: customWebhookUrl.trim() || undefined,
+        updatedAt: new Date().toISOString(),
+      });
+      toast.success("Google Sheets Webhook URL saved successfully!");
+    } catch (err) {
+      toast.error("Failed to save Webhook URL");
+    } finally {
+      setSavingWebhook(false);
     }
   };
 
@@ -449,7 +467,7 @@ export default function SettingsTab({
             />
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <button
               type="button"
               disabled={testingWebhook}
@@ -462,6 +480,20 @@ export default function SettingsTab({
                 <Send className="w-3.5 h-3.5 text-primary" />
               )}
               <span>Test Webhook Ping</span>
+            </button>
+
+            <button
+              type="button"
+              disabled={savingWebhook}
+              onClick={handleSaveWebhook}
+              className="btn-primary-pill text-xs py-1.5 px-3.5 inline-flex items-center gap-1.5 shadow-xs"
+            >
+              {savingWebhook ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Save className="w-3.5 h-3.5" />
+              )}
+              <span>Save Webhook URL</span>
             </button>
           </div>
         </div>

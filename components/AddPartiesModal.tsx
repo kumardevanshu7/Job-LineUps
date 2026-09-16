@@ -608,28 +608,31 @@ export default function AddPartiesModal({
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between pt-1">
-                      <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
+                      <label className="flex items-start sm:items-center gap-2.5 cursor-pointer select-none flex-1 min-w-0">
                         <input
                           type="checkbox"
                           checked={isPublicTeam}
                           onChange={(e) => setIsPublicTeam(e.target.checked)}
-                          className="w-4 h-4 rounded text-primary border-hairline focus:ring-primary"
+                          className="w-4 h-4 rounded text-primary border-hairline focus:ring-primary mt-0.5 sm:mt-0 shrink-0"
                         />
-                        <span className="text-xs text-ink">
-                          <strong>Open for Public Search</strong> — Anyone can search and send join requests
-                        </span>
+                        <div className="text-xs text-ink leading-snug">
+                          <strong className="block sm:inline font-semibold">Open for Public Search</strong>
+                          <span className="text-ink-mute text-[11px] block sm:inline sm:before:content-['\00a0—\00a0']">
+                            Anyone can search and send join requests
+                          </span>
+                        </div>
                       </label>
 
                       <button
                         type="submit"
                         disabled={isCreatingTeam}
-                        className="btn-primary-pill text-xs px-4 py-2 inline-flex items-center gap-1.5 shadow-xs"
+                        className="btn-primary-pill text-xs px-5 py-2.5 inline-flex items-center justify-center gap-1.5 shadow-xs shrink-0 w-full sm:w-auto"
                       >
                         {isCreatingTeam ? (
                           <Loader2 className="w-3.5 h-3.5 animate-spin" />
                         ) : (
-                          <Plus className="w-3.5 h-3.5" />
+                          <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
                         )}
                         <span>Create Team</span>
                       </button>
