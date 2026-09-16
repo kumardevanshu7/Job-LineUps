@@ -2,17 +2,15 @@ import { CandidateItem } from "./types";
 import { getSettingsFromFirestore } from "./firebase";
 
 export const GOOGLE_APPS_SCRIPT_TEMPLATE = `// ===============================================================
-// TalentFlow Google Sheets Live Sync Webhook
+// TalentFlow Google Sheets Live Sync & Auto-Styling Webhook
 // Instructions:
-// 1. Open your Google Sheet
-// 2. Click Extensions -> Apps Script
-// 3. Delete existing code and paste this script
-// 4. Click 'Deploy' -> 'New deployment'
-// 5. Select type: 'Web app'
-// 6. Set Description: 'TalentFlow Sync'
-// 7. Execute as: 'Me'
-// 8. Who has access: 'Anyone' (IMPORTANT)
-// 9. Click Deploy, Authorize access, and copy the Web App URL!
+// 1. Open your Google Sheet -> Extensions -> Apps Script
+// 2. Replace the code with this updated script and Save (Ctrl+S)
+// 3. Click 'Deploy' -> 'Manage deployments' -> Edit (pencil)
+// 4. Set Version to 'New version' and click Deploy!
+// 
+// TIP: To format your existing rows right now, select the 
+// function 'formatMyEntireSheet' in the top bar and click 'Run'!
 // ===============================================================
 
 function doPost(e) {
@@ -22,6 +20,7 @@ function doPost(e) {
     // Auto-create header row if sheet is empty
     if (sheet.getLastRow() === 0) {
       sheet.appendRow([
+        "S.No",
         "Candidate ID",
         "Timestamp",
         "Full Name",
@@ -29,7 +28,7 @@ function doPost(e) {
         "Email",
         "Location",
         "Applied Role",
-        "Experience (Yrs)",
+        "Exp (Yrs)",
         "Notice (Days)",
         "Current CTC",
         "Expected CTC",
@@ -37,28 +36,39 @@ function doPost(e) {
         "Pipeline Status",
         "Recruiter Notes"
       ]);
-      sheet.getRange(1, 1, 1, 14).setFontWeight("bold").setBackground("#f6f9fc");
+      applyHeaderStyling(sheet);
     }
 
     var contents = (e && e.postData && e.postData.contents) ? e.postData.contents : "{}";
     var data = JSON.parse(contents);
 
+    // Calculate sequential Serial Number
+    var nextSerialNo = Math.max(1, sheet.getLastRow());
+
+    // Candidate sequential ID fallback
+    var candidateId = data.id || ("TF-2026-" + ("000" + nextSerialNo).slice(-4));
+
+    // Append Candidate Row
     sheet.appendRow([
-      data.id || ("TF-" + Math.floor(1000 + Math.random() * 9000)),
+      nextSerialNo,
+      candidateId,
       new Date(),
       data.fullName || "",
-      data.phone || "",
+      "'" + (data.phone || ""),
       data.email || "",
       data.location || "",
       data.appliedRole || "",
-      data.experienceYears || 0,
-      data.noticePeriodDays || 0,
+      data.experienceYears != null ? data.experienceYears : 0,
+      data.noticePeriodDays != null ? data.noticePeriodDays : 0,
       data.currentCtc || "N/A",
       data.expectedCtc || "N/A",
       data.resumeUrl || "",
       data.status || "New Applied",
       data.recruiterNotes || ""
     ]);
+
+    var lastRow = sheet.getLastRow();
+    styleCandidateRow(sheet, lastRow, data.status, data.resumeUrl);
 
     return ContentService.createTextOutput(
       JSON.stringify({ status: "success", message: "Candidate synced successfully" })
@@ -70,11 +80,90 @@ function doPost(e) {
   }
 }
 
-// Health check responder: confirms Webhook is live when opened in a browser
+// Health check responder
 function doGet(e) {
   return ContentService.createTextOutput(
     JSON.stringify({ status: "active", message: "TalentFlow Webhook is Live & Ready!" })
   ).setMimeType(ContentService.MimeType.JSON);
+}
+
+// Helper: Style the header row with deep navy background & bold white text
+function applyHeaderStyling(sheet) {
+  sheet.setFrozenRows(1);
+  sheet.setRowHeight(1, 38);
+  var header = sheet.getRange(1, 1, 1, 15);
+  header.setBackground("#1e293b"); // Deep Slate Navy
+  header.setFontColor("#ffffff");
+  header.setFontWeight("bold");
+  header.setFontSize(10);
+  header.setHorizontalAlignment("center");
+  header.setVerticalAlignment("middle");
+  header.setWrap(false);
+}
+
+// Helper: Style candidate row with zebra striping and colorful pastel status badges
+function styleCandidateRow(sheet, rowNum, status, resumeUrl) {
+  sheet.setRowHeight(rowNum, 32);
+  var rowRange = sheet.getRange(rowNum, 1, 1, 15);
+  rowRange.setVerticalAlignment("middle");
+  rowRange.setFontSize(10);
+
+  // Alternating zebra striping
+  if (rowNum % 2 === 0) {
+    rowRange.setBackground("#ffffff");
+  } else {
+    rowRange.setBackground("#f8fafc"); // Clean soft gray
+  }
+
+  // S.No & ID column styling
+  sheet.getRange(rowNum, 1).setHorizontalAlignment("center").setFontWeight("bold").setFontColor("#475569");
+  sheet.getRange(rowNum, 2).setHorizontalAlignment("center").setFontWeight("bold").setFontColor("#0284c7");
+  sheet.getRange(rowNum, 3).setHorizontalAlignment("center").setFontColor("#64748b");
+  sheet.getRange(rowNum, 5).setHorizontalAlignment("center");
+  sheet.getRange(rowNum, 9).setHorizontalAlignment("center");
+  sheet.getRange(rowNum, 10).setHorizontalAlignment("center");
+
+  // Color-coded Status Badge in Column 14 (Pipeline Status)
+  var statusCell = sheet.getRange(rowNum, 14);
+  statusCell.setHorizontalAlignment("center").setFontWeight("bold");
+  var st = (status || "New Applied").toLowerCase();
+
+  if (st.indexOf("selected") !== -1) {
+    statusCell.setBackground("#dcfce7").setFontColor("#15803d"); // Pastel Emerald Green
+  } else if (st.indexOf("scheduled") !== -1) {
+    statusCell.setBackground("#f3e8ff").setFontColor("#7e22ce"); // Pastel Purple
+  } else if (st.indexOf("shortlisted") !== -1) {
+    statusCell.setBackground("#dbeafe").setFontColor("#1d4ed8"); // Pastel Blue
+  } else if (st.indexOf("done") !== -1) {
+    statusCell.setBackground("#fef3c7").setFontColor("#b45309"); // Pastel Amber
+  } else if (st.indexOf("rejected") !== -1) {
+    statusCell.setBackground("#ffe4e6").setFontColor("#be123c"); // Pastel Rose
+  } else {
+    statusCell.setBackground("#f1f5f9").setFontColor("#475569"); // Soft Slate
+  }
+
+  // Resume link clickable styling
+  if (resumeUrl && resumeUrl.indexOf("http") === 0) {
+    sheet.getRange(rowNum, 13).setFontColor("#2563eb").setFontUnderline(true);
+  }
+
+  // Clean subtle borders
+  rowRange.setBorder(true, true, true, true, true, true, "#e2e8f0", SpreadsheetApp.BorderStyle.SOLID);
+}
+
+// 1-Click Formatter: Run this function directly inside Apps Script to format entire sheet
+function formatMyEntireSheet() {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  var lastRow = sheet.getLastRow();
+  if (lastRow === 0) return;
+
+  applyHeaderStyling(sheet);
+
+  for (var r = 2; r <= lastRow; r++) {
+    var status = sheet.getRange(r, 14).getValue();
+    var resumeUrl = sheet.getRange(r, 13).getValue();
+    styleCandidateRow(sheet, r, status, resumeUrl);
+  }
 }`;
 
 // Dynamically resolve active webhook URL: checks custom arg -> Firestore global_config -> env fallback

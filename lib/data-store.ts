@@ -170,8 +170,17 @@ export async function createCandidate(
     status?: string;
   }
 ): Promise<CandidateItem> {
-  const generatedId =
-    data.id || `TF-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+  let generatedId = data.id;
+  if (!generatedId) {
+    try {
+      const count = await prisma.candidate.count();
+      const seq = String(count + 1).padStart(4, "0");
+      generatedId = `TF-${new Date().getFullYear()}-${seq}`;
+    } catch {
+      const seq = String(memoryCandidates.length + 1).padStart(4, "0");
+      generatedId = `TF-${new Date().getFullYear()}-${seq}`;
+    }
+  }
 
   const candidateRecord: CandidateItem = {
     id: generatedId,
